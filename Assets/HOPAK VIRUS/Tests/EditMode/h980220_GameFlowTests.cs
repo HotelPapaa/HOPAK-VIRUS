@@ -134,7 +134,7 @@ public sealed class h980220_GameFlowTests
         Assert.That(fixture.HudPanel.activeSelf, Is.False);
         Assert.That(fixture.ResultPanel.activeSelf, Is.True);
         Assert.That(fixture.ResultText.text, Does.Contain("HOPAK VIRUS SPREAD COMPLETE"));
-        Assert.That(fixture.ResultText.text, Does.Contain("R: RESTART"));
+        Assert.That(fixture.ResultText.text, Does.Not.Contain("R: RESTART"));
         fixture.Camera.Follow(1f);
         Assert.That(fixture.Camera.transform.position,
             Is.EqualTo(fixture.Player.transform.TransformPoint(new Vector3(0f, 10f, -14f)))
@@ -160,7 +160,7 @@ public sealed class h980220_GameFlowTests
 
         Assert.That(fixture.Manager.State, Is.EqualTo(h980220_GameState.Cured));
         Assert.That(fixture.ResultText.text, Does.Contain("CURED..."));
-        Assert.That(fixture.ResultText.text, Does.Contain("R: RESTART"));
+        Assert.That(fixture.ResultText.text, Does.Not.Contain("R: RESTART"));
         Assert.That(fixture.ResultPanel.activeSelf, Is.True);
         Assert.That(fixture.HudPanel.activeSelf, Is.False);
 

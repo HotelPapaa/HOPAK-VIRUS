@@ -73,6 +73,9 @@ public sealed class h980220_GameSceneBuilderTests
 
         Assert.That(Find("Room 1 Plaza/Floor").transform.localScale,
             Is.EqualTo(new Vector3(20f, 0.5f, 16f)));
+        Assert.That(FindOptional("Room 1 Plaza/Walls/South Wall"), Is.Null);
+        Assert.That(Find("Room 1 Plaza/Walls/South West Wall"), Is.Not.Null);
+        Assert.That(Find("Room 1 Plaza/Walls/South East Wall"), Is.Not.Null);
         Assert.That(Find("Room 2 Zigzag/Zigzag Walls").transform.childCount, Is.EqualTo(3));
         Assert.That(Find("Room 3 Arena/Pillars").transform.childCount, Is.EqualTo(4));
         Assert.That(Find("Room 3 Arena/Boundary").transform.childCount, Is.EqualTo(15));
@@ -180,7 +183,7 @@ public sealed class h980220_GameSceneBuilderTests
         Assert.That(UnityEngine.Object.FindObjectsByType<Image>(
             FindObjectsInactive.Include, FindObjectsSortMode.None), Has.Length.EqualTo(3));
         Assert.That(UnityEngine.Object.FindObjectsByType<Text>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None), Has.Length.EqualTo(3));
+            FindObjectsInactive.Include, FindObjectsSortMode.None), Has.Length.EqualTo(4));
         Assert.That(UnityEngine.Object.FindObjectsByType<Button>(
             FindObjectsInactive.Include, FindObjectsSortMode.None), Is.Empty);
         Assert.That(UnityEngine.Object.FindObjectsByType<Slider>(
@@ -208,6 +211,18 @@ public sealed class h980220_GameSceneBuilderTests
                 gameObject.name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0), Is.False,
                 gameObject.name);
         }
+    }
+
+    [Test]
+    public void ResultPanelSeparatesResultAndRestartCopy()
+    {
+        Text result = Find("Canvas/ResultPanel/ResultText").GetComponent<Text>();
+        Text restart = Find("Canvas/ResultPanel/RestartText").GetComponent<Text>();
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.text, Does.Not.Contain("R: RESTART"));
+        Assert.That(restart, Is.Not.Null);
+        Assert.That(restart.text, Is.EqualTo("R: RESTART"));
     }
 
     private static bool IsRuntimeComponent(MonoBehaviour behaviour)

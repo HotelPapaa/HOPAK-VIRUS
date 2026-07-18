@@ -225,8 +225,10 @@ public static class h980220_GameSceneBuilder
             new Vector3(0.5f, 3f, 16f), wallMaterial);
         Cube("East Wall", room1Walls, new Vector3(10f, 1.5f, 0f),
             new Vector3(0.5f, 3f, 16f), wallMaterial);
-        Cube("South Wall", room1Walls, new Vector3(0f, 1.5f, -8f),
-            new Vector3(20f, 3f, 0.5f), wallMaterial);
+        Cube("South West Wall", room1Walls, new Vector3(-6f, 1.5f, -8f),
+            new Vector3(8f, 3f, 0.5f), wallMaterial);
+        Cube("South East Wall", room1Walls, new Vector3(6f, 1.5f, -8f),
+            new Vector3(8f, 3f, 0.5f), wallMaterial);
         Cube("North West Wall", room1Walls, new Vector3(-6f, 1.5f, 8f),
             new Vector3(8f, 3f, 0.5f), wallMaterial);
         Cube("North East Wall", room1Walls, new Vector3(6f, 1.5f, 8f),
@@ -423,8 +425,15 @@ public static class h980220_GameSceneBuilder
 
         resultPanel = Panel("ResultPanel", canvasObject.transform);
         resultText = UiText("ResultText", resultPanel.transform, font, 44, TextAnchor.MiddleCenter);
-        resultText.text = "R: RESTART";
-        Stretch(resultText.rectTransform, new Vector2(260f, 220f), new Vector2(-260f, -220f));
+        resultText.text = string.Empty;
+        Stretch(resultText.rectTransform, new Vector2(260f, 280f), new Vector2(-260f, -180f));
+        Text restartText = UiText(
+            "RestartText", resultPanel.transform, font, 30, TextAnchor.MiddleCenter);
+        restartText.text = "R: RESTART";
+        restartText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        restartText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        restartText.rectTransform.anchoredPosition = new Vector2(0f, -120f);
+        restartText.rectTransform.sizeDelta = new Vector2(500f, 70f);
 
         titlePanel.SetActive(true);
         hudPanel.SetActive(false);

@@ -150,7 +150,7 @@ public sealed class h980220_GameManager : MonoBehaviour
         SetActive(hudPanel, false);
         SetActive(resultPanel, true);
         if (resultText != null)
-            resultText.text = $"{message}\nR: RESTART";
+            resultText.text = message;
     }
 
     private void SetPlayerInput(bool enabled)

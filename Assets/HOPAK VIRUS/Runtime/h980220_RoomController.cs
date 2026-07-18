@@ -11,6 +11,7 @@ public sealed class h980220_RoomController : MonoBehaviour
 
     private readonly List<h980220_EnemyController> enemies = new List<h980220_EnemyController>();
     private bool completed;
+    private bool combatEnabled = true;
 
     public event Action<int> Completed;
 
@@ -55,6 +56,8 @@ public sealed class h980220_RoomController : MonoBehaviour
         {
             if (!enemy.IsInfected)
                 RemainingEnemies++;
+
+            enemy.SetCombatEnabled(combatEnabled);
         }
 
         TryComplete();
@@ -62,6 +65,7 @@ public sealed class h980220_RoomController : MonoBehaviour
 
     public void SetCombatEnabled(bool enabled)
     {
+        combatEnabled = enabled;
         foreach (h980220_EnemyController enemy in enemies)
         {
             if (enemy != null)
