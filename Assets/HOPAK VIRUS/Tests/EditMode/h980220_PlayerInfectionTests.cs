@@ -67,6 +67,53 @@ public sealed class h980220_PlayerInfectionTests
     }
 
     [Test]
+    public void CureAppliesConfiguredPlanarCharacterControllerKnockback()
+    {
+        GameObject player = CreateRoot("Task4 Knockback Player");
+        player.AddComponent<CharacterController>();
+        h980220_PlayerInfection infection = player.AddComponent<h980220_PlayerInfection>();
+        infection.ResetInfection();
+
+        Assert.That(infection.ReceiveCureAtTime(Vector3.back, 0f), Is.True);
+
+        AssertVector(player.transform.position, Vector3.forward * 1.5f);
+    }
+
+    [Test]
+    public void ResetRestoresFullInfectionAndClearsInvulnerability()
+    {
+        GameObject player = CreateRoot("Task4 Reset Player");
+        h980220_PlayerInfection infection = player.AddComponent<h980220_PlayerInfection>();
+        Renderer body = GameObject.CreatePrimitive(PrimitiveType.Cube).GetComponent<Renderer>();
+        body.transform.SetParent(player.transform);
+        Image[] indicators = new Image[3];
+        for (int i = 0; i < indicators.Length; i++)
+        {
+            GameObject indicator = new GameObject($"Reset Indicator {i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            indicator.transform.SetParent(player.transform);
+            indicators[i] = indicator.GetComponent<Image>();
+        }
+
+        Color infected = new Color(0.6f, 0.1f, 0.8f, 1f);
+        SetPrivate(infection, "bodyRenderers", new[] { body });
+        SetPrivate(infection, "hudIndicators", indicators);
+        SetPrivate(infection, "infectedColor", infected);
+        infection.ResetInfection();
+        Assert.That(infection.ReceiveCureAtTime(Vector3.back, 0f), Is.True);
+        Assert.That(infection.RemainingInfection, Is.EqualTo(2));
+
+        infection.ResetInfection();
+
+        Assert.That(infection.RemainingInfection, Is.EqualTo(3));
+        AssertRendererColor(body, infected);
+        Assert.That(indicators[0].gameObject.activeSelf, Is.True);
+        Assert.That(indicators[1].gameObject.activeSelf, Is.True);
+        Assert.That(indicators[2].gameObject.activeSelf, Is.True);
+        Assert.That(infection.ReceiveCureAtTime(Vector3.back, 0.2f), Is.True);
+        Assert.That(infection.RemainingInfection, Is.EqualTo(2));
+    }
+
+    [Test]
     public void ConfiguredBodyAndHudReflectRemainingInfection()
     {
         GameObject player = CreateRoot("Task4 Visual Player");
@@ -130,6 +177,31 @@ public sealed class h980220_PlayerInfectionTests
         AssertVector(projectile.transform.position, Vector3.right * 3f);
         Assert.That(projectile.IsExpired, Is.True);
         Assert.That(projectile.gameObject.activeSelf, Is.False);
+    }
+
+    [Test]
+    public void ProjectileWithNoMotionExpiresDuringInitialization()
+    {
+        h980220_Projectile projectile = CreateProjectile("Task4 Stationary Projectile");
+
+        projectile.Initialize(h980220_ProjectileKind.Virus, Vector3.zero, 0f, 4f);
+
+        Assert.That(projectile.IsExpired, Is.True);
+        Assert.That(projectile.gameObject.activeSelf, Is.False);
+    }
+
+    [Test]
+    public void ProjectileConfiguresProductionPhysicsTriggerComponents()
+    {
+        h980220_Projectile projectile = CreateProjectile("Task4 Physics Projectile");
+        projectile.Awake();
+        SphereCollider projectileCollider = projectile.GetComponent<SphereCollider>();
+        Rigidbody projectileBody = projectile.GetComponent<Rigidbody>();
+
+        Assert.That(projectileCollider.isTrigger, Is.True);
+        Assert.That(projectileBody.useGravity, Is.False);
+        Assert.That(projectileBody.isKinematic, Is.True);
+        Assert.That(projectileBody.collisionDetectionMode, Is.EqualTo(CollisionDetectionMode.ContinuousSpeculative));
     }
 
     [Test]

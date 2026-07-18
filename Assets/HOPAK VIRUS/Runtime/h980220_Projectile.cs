@@ -11,6 +11,7 @@ public interface h980220_IVirusHitReceiver
     void ReceiveVirusHit();
 }
 
+[RequireComponent(typeof(SphereCollider), typeof(Rigidbody))]
 public sealed class h980220_Projectile : MonoBehaviour
 {
     private Vector3 startPosition;
@@ -21,6 +22,18 @@ public sealed class h980220_Projectile : MonoBehaviour
     public float MaximumRange { get; private set; }
     public bool IsExpired { get; private set; }
 
+    internal void Awake()
+    {
+        SphereCollider projectileCollider = GetComponent<SphereCollider>();
+        projectileCollider.isTrigger = true;
+
+        Rigidbody projectileBody = GetComponent<Rigidbody>();
+        projectileBody.useGravity = false;
+        projectileBody.isKinematic = true;
+        projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        projectileBody.constraints = RigidbodyConstraints.FreezeRotation;
+    }
+
     public void Initialize(h980220_ProjectileKind kind, Vector3 direction, float speed, float range)
     {
         Kind = kind;
@@ -30,7 +43,7 @@ public sealed class h980220_Projectile : MonoBehaviour
         startPosition = transform.position;
         IsExpired = false;
 
-        if (MaximumRange <= 0f)
+        if (MaximumRange <= 0f || Direction == Vector3.zero || Speed <= 0f)
             Expire();
     }
 
