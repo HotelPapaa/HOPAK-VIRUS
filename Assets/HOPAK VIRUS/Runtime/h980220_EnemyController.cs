@@ -174,9 +174,23 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         Transform origin = firePoint == null ? transform : firePoint;
         h980220_Projectile projectile = Instantiate(cureProjectilePrefab, origin.position,
             Quaternion.LookRotation(direction, Vector3.up));
+        IgnoreShooterCollisions(projectile);
         SetProjectileColor(projectile, Color.white);
         projectile.Initialize(h980220_ProjectileKind.Cure, direction, 7f, 12f);
         nextFireTime = now + Mathf.Max(0f, fireInterval);
+    }
+
+    private void IgnoreShooterCollisions(h980220_Projectile projectile)
+    {
+        Collider projectileCollider = projectile.GetComponent<Collider>();
+        if (projectileCollider == null)
+            return;
+
+        foreach (Collider shooterCollider in GetComponentsInChildren<Collider>(true))
+        {
+            if (shooterCollider != null)
+                Physics.IgnoreCollision(projectileCollider, shooterCollider, true);
+        }
     }
 
     private Vector3 HorizontalDirectionToPlayer()
