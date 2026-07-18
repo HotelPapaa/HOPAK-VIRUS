@@ -1,7 +1,7 @@
 {
   "name": "h980220_HopakVirus.EditModeTests",
   "rootNamespace": "",
-  "references": ["h980220_HopakVirus.Runtime"],
+  "references": ["h980220_HopakVirus.Runtime", "Unity.UGUI"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

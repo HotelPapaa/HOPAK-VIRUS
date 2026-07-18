@@ -1,7 +1,7 @@
 {
   "name": "h980220_HopakVirus.Runtime",
   "rootNamespace": "",
-  "references": [],
+  "references": ["Unity.UGUI"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
