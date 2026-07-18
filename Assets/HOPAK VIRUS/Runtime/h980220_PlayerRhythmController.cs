@@ -26,7 +26,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
 
-    private void Awake()
+    internal void Awake()
     {
         characterController = GetComponent<CharacterController>();
         rhythm = new h980220_RhythmState(
@@ -35,25 +35,35 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
 
     private void Update()
     {
-        if (!inputEnabled)
-            return;
-
-        rhythm.Tick(Time.deltaTime);
-
-        if (Input.GetKeyDown(KeyCode.A))
-            HandleLeg(h980220_Leg.Left);
-        if (Input.GetKeyDown(KeyCode.D))
-            HandleLeg(h980220_Leg.Right);
-
         float turn = 0f;
         if (Input.GetKey(KeyCode.LeftArrow))
             turn -= 1f;
         if (Input.GetKey(KeyCode.RightArrow))
             turn += 1f;
-        transform.Rotate(0f, turn * turnSpeed * Time.deltaTime, 0f);
+
+        ProcessFrame(
+            Time.deltaTime,
+            Input.GetKeyDown(KeyCode.A),
+            Input.GetKeyDown(KeyCode.D),
+            turn);
+    }
+
+    internal void ProcessFrame(float deltaTime, bool leftDown, bool rightDown, float turnAxis)
+    {
+        if (!inputEnabled)
+            return;
+
+        rhythm.Tick(deltaTime);
+
+        if (leftDown)
+            HandleLeg(h980220_Leg.Left);
+        if (rightDown)
+            HandleLeg(h980220_Leg.Right);
+
+        transform.Rotate(0f, turnAxis * turnSpeed * deltaTime, 0f);
 
         if (rhythm.IsMoving)
-            characterController.Move(transform.forward * rhythm.CurrentSpeed * Time.deltaTime);
+            characterController.Move(transform.forward * rhythm.CurrentSpeed * deltaTime);
 
         ApplyPose(h980220_HopakPose.Evaluate(rhythm.ActiveLeg, rhythm.NormalizedStep));
     }
@@ -61,6 +71,11 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     public void SetInputEnabled(bool enabled)
     {
         inputEnabled = enabled;
+        if (!enabled && rhythm != null)
+        {
+            rhythm.Reset();
+            ApplyPose(h980220_HopakPose.Evaluate(h980220_Leg.None, 0f));
+        }
     }
 
     private void HandleLeg(h980220_Leg leg)

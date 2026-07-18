@@ -25,18 +25,45 @@ public sealed class h980220_HopakPoseTests
         Assert.That(pose.RightThighX, Is.Zero);
         Assert.That(pose.RightShinX, Is.Zero);
     }
+
+    [Test]
+    public void RightLegAtMidStepRaisesOnlyRightSegments()
+    {
+        h980220_LegPose pose = h980220_HopakPose.Evaluate(h980220_Leg.Right, 0.5f);
+
+        Assert.That(pose.LeftThighX, Is.EqualTo(0f).Within(0.01f));
+        Assert.That(pose.LeftShinX, Is.EqualTo(0f).Within(0.01f));
+        Assert.That(pose.RightThighX, Is.LessThan(-50f));
+        Assert.That(pose.RightShinX, Is.GreaterThan(60f));
+    }
 }
 
 public sealed class h980220_PlayerRhythmControllerTests
 {
     private GameObject player;
     private h980220_PlayerRhythmController controller;
+    private Transform leftThigh;
+    private Transform leftShin;
+    private Transform rightThigh;
+    private Transform rightShin;
 
     [SetUp]
     public void SetUp()
     {
         player = new GameObject("player");
         controller = player.AddComponent<h980220_PlayerRhythmController>();
+        controller.Awake();
+        leftThigh = CreateLegSegment("left thigh");
+        leftShin = CreateLegSegment("left shin");
+        rightThigh = CreateLegSegment("right thigh");
+        rightShin = CreateLegSegment("right shin");
+
+        SerializedObject serializedController = new SerializedObject(controller);
+        serializedController.FindProperty("leftThigh").objectReferenceValue = leftThigh;
+        serializedController.FindProperty("leftShin").objectReferenceValue = leftShin;
+        serializedController.FindProperty("rightThigh").objectReferenceValue = rightThigh;
+        serializedController.FindProperty("rightShin").objectReferenceValue = rightShin;
+        serializedController.ApplyModifiedPropertiesWithoutUndo();
     }
 
     [TearDown]
@@ -46,10 +73,71 @@ public sealed class h980220_PlayerRhythmControllerTests
     }
 
     [Test]
-    public void StartsAtConfiguredBaseSpeedWithNoSuccesses()
+    public void AwakeInitializesStateAndRequiredCharacterController()
     {
+        Assert.That(player.GetComponent<CharacterController>(), Is.Not.Null);
         Assert.That(controller.CurrentSpeed, Is.EqualTo(2f).Within(0.001f));
         Assert.That(controller.SuccessStreak, Is.Zero);
+    }
+
+    [Test]
+    public void SuccessfulAlternatingInputMovesThroughCharacterController()
+    {
+        controller.ProcessFrame(0f, true, false, 0f);
+        controller.ProcessFrame(0.35f, false, true, 0f);
+
+        Assert.That(controller.SuccessStreak, Is.EqualTo(1));
+        Assert.That(controller.CurrentSpeed, Is.EqualTo(3f).Within(0.001f));
+        Assert.That(player.transform.position.z, Is.EqualTo(1.05f).Within(0.001f));
+    }
+
+    [Test]
+    public void EarlyRepeatedInputStopsPropulsionAndResetsStreak()
+    {
+        controller.ProcessFrame(0f, true, false, 0f);
+        controller.ProcessFrame(0.35f, false, true, 0f);
+        Vector3 positionAfterSuccess = player.transform.position;
+
+        controller.ProcessFrame(0.1f, false, true, 0f);
+        controller.ProcessFrame(0.4f, false, false, 0f);
+
+        Assert.That(controller.SuccessStreak, Is.Zero);
+        Assert.That(controller.CurrentSpeed, Is.EqualTo(2f).Within(0.001f));
+        Assert.That(player.transform.position, Is.EqualTo(positionAfterSuccess));
+    }
+
+    [Test]
+    public void ActiveStepAppliesExpectedPoseToAllFourSegments()
+    {
+        controller.ProcessFrame(0f, true, false, 0f);
+        controller.ProcessFrame(0.25f, false, false, 0f);
+
+        Assert.That(Mathf.DeltaAngle(0f, leftThigh.localEulerAngles.x), Is.EqualTo(-70f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, leftShin.localEulerAngles.x), Is.EqualTo(90f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, rightThigh.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, rightShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+    }
+
+    [Test]
+    public void DisablingInputResetsAndPreventsFurtherProcessing()
+    {
+        controller.ProcessFrame(0f, true, false, 0f);
+        controller.ProcessFrame(0.35f, false, true, 0f);
+        controller.ProcessFrame(0.25f, false, false, 0f);
+        controller.SetInputEnabled(false);
+        Vector3 disabledPosition = player.transform.position;
+        Quaternion disabledRotation = player.transform.rotation;
+
+        controller.ProcessFrame(1f, true, false, 1f);
+
+        Assert.That(controller.SuccessStreak, Is.Zero);
+        Assert.That(controller.CurrentSpeed, Is.EqualTo(2f).Within(0.001f));
+        Assert.That(player.transform.position, Is.EqualTo(disabledPosition));
+        Assert.That(player.transform.rotation, Is.EqualTo(disabledRotation));
+        Assert.That(Mathf.DeltaAngle(0f, leftThigh.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, leftShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, rightThigh.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(Mathf.DeltaAngle(0f, rightShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
     }
 
     [Test]
@@ -72,5 +160,12 @@ public sealed class h980220_PlayerRhythmControllerTests
         Assert.That(serializedController.FindProperty("maxMoveSpeed").floatValue,
             Is.EqualTo(4f).Within(0.001f));
         Assert.That(serializedController.FindProperty("successesToMaxSpeed").intValue, Is.EqualTo(1));
+    }
+
+    private Transform CreateLegSegment(string name)
+    {
+        Transform segment = new GameObject(name).transform;
+        segment.SetParent(player.transform, false);
+        return segment;
     }
 }

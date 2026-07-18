@@ -24,11 +24,12 @@ public static class h980220_HopakPose
             return new h980220_LegPose(0f, 0f, 0f, 0f);
 
         float lift = Mathf.Sin(Mathf.Clamp01(normalizedStep) * Mathf.PI);
-        float thigh = -70f * lift;
-        float shin = 90f * lift;
+        float liftedThigh = -70f * lift;
+        float bentShin = 90f * lift;
 
-        return activeLeg == h980220_Leg.Left
-            ? new h980220_LegPose(thigh, shin, 0f, 0f)
-            : new h980220_LegPose(0f, 0f, thigh, shin);
+        if (activeLeg == h980220_Leg.Left)
+            return new h980220_LegPose(liftedThigh, bentShin, 0f, 0f);
+
+        return new h980220_LegPose(0f, 0f, liftedThigh, bentShin);
     }
 }
