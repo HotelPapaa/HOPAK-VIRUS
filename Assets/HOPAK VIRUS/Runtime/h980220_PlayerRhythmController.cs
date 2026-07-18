@@ -11,6 +11,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     [InspectorName("Successes To Reference Speed")]
     [SerializeField] private int successesToMaxSpeed = 4;
     [SerializeField] private float turnSpeed = 120f;
+    [SerializeField] private float slideDeceleration = 12f;
 
     [Header("Rhythm")]
     [SerializeField] private float stepDuration = 0.5f;
@@ -34,8 +35,23 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     private Transform capturedTorso;
     private Vector3 torsoBasePosition;
     private Quaternion torsoBaseRotation;
+    private Transform capturedLeftThigh;
+    private Transform capturedLeftShin;
+    private Transform capturedRightThigh;
+    private Transform capturedRightShin;
+    private Vector3 leftThighBasePosition;
+    private Vector3 leftShinBasePosition;
+    private Vector3 rightThighBasePosition;
+    private Vector3 rightShinBasePosition;
+    private Quaternion leftThighBaseRotation;
+    private Quaternion leftShinBaseRotation;
+    private Quaternion rightThighBaseRotation;
+    private Quaternion rightShinBaseRotation;
+    private float momentumSpeed;
+    private Vector3 momentumDirection;
 
     public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
+    public float CurrentStepDuration => rhythm == null ? stepDuration : rhythm.CurrentStepDuration;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
 
     internal void Awake()
@@ -45,6 +61,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
             stepDuration, successWindow, baseMoveSpeed, maxMoveSpeed,
             successesToMaxSpeed, cadenceAccelerationPerSuccess);
         EnsureTorsoBaseline();
+        EnsureLegBaselines();
     }
 
     private void Update()
@@ -77,7 +94,18 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         transform.Rotate(0f, turnAxis * turnSpeed * deltaTime, 0f);
 
         if (rhythm.IsMoving)
-            characterController.Move(transform.forward * rhythm.CurrentSpeed * deltaTime);
+        {
+            momentumSpeed = rhythm.CurrentSpeed;
+            momentumDirection = transform.forward;
+        }
+        else
+        {
+            momentumSpeed = Mathf.MoveTowards(
+                momentumSpeed, 0f, slideDeceleration * Mathf.Max(0f, deltaTime));
+        }
+
+        if (momentumSpeed > 0f)
+            characterController.Move(momentumDirection * momentumSpeed * deltaTime);
 
         ApplyPose(h980220_HopakPose.Evaluate(rhythm.ActiveLeg, rhythm.NormalizedStep));
     }
@@ -88,8 +116,16 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         if (!enabled && rhythm != null)
         {
             rhythm.Reset();
+            momentumSpeed = 0f;
             ApplyPose(h980220_HopakPose.Evaluate(h980220_Leg.None, 0f));
         }
+    }
+
+    public float RegisterDashBeat(float graceSeconds)
+    {
+        if (rhythm == null)
+            Awake();
+        return rhythm.RegisterDash(graceSeconds);
     }
 
     private void HandleLeg(h980220_Leg leg)
@@ -99,22 +135,64 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
 
     private void ApplyPose(h980220_LegPose pose)
     {
-        if (leftThigh != null)
-            leftThigh.localRotation = Quaternion.Euler(pose.LeftThighX, 0f, 0f);
-        if (leftShin != null)
-            leftShin.localRotation = Quaternion.Euler(pose.LeftShinX, 0f, 0f);
-        if (rightThigh != null)
-            rightThigh.localRotation = Quaternion.Euler(pose.RightThighX, 0f, 0f);
-        if (rightShin != null)
-            rightShin.localRotation = Quaternion.Euler(pose.RightShinX, 0f, 0f);
+        EnsureLegBaselines();
+        ApplySegment(leftThigh, leftThighBasePosition, leftThighBaseRotation,
+            h980220_HopakPose.LeftThighTarget(pose.ActiveLeg),
+            h980220_HopakPose.LeftThighRotation(pose.ActiveLeg), pose.Weight);
+        ApplySegment(leftShin, leftShinBasePosition, leftShinBaseRotation,
+            h980220_HopakPose.LeftShinTarget(pose.ActiveLeg),
+            h980220_HopakPose.LeftShinRotation(pose.ActiveLeg), pose.Weight);
+        ApplySegment(rightThigh, rightThighBasePosition, rightThighBaseRotation,
+            h980220_HopakPose.RightThighTarget(pose.ActiveLeg),
+            h980220_HopakPose.RightThighRotation(pose.ActiveLeg), pose.Weight);
+        ApplySegment(rightShin, rightShinBasePosition, rightShinBaseRotation,
+            h980220_HopakPose.RightShinTarget(pose.ActiveLeg),
+            h980220_HopakPose.RightShinRotation(pose.ActiveLeg), pose.Weight);
 
         EnsureTorsoBaseline();
         if (torso != null)
         {
-            torso.localPosition = torsoBasePosition + Vector3.down * (pose.TorsoDip * torsoBobHeight);
-            torso.localRotation = torsoBaseRotation *
-                Quaternion.Euler(0f, 0f, pose.TorsoLean * torsoLeanDegrees);
+            float torsoStrength = torsoLeanDegrees / 12f;
+            Vector3 targetPosition = torsoBasePosition +
+                                     Vector3.down * (0.508f * torsoBobHeight);
+            torso.localPosition = Vector3.Lerp(torsoBasePosition, targetPosition, pose.Weight);
+            torso.localRotation = Quaternion.Slerp(torsoBaseRotation,
+                torsoBaseRotation * h980220_HopakPose.TorsoRotation(
+                    pose.ActiveLeg, torsoStrength), pose.Weight);
         }
+    }
+
+    private static void ApplySegment(
+        Transform segment, Vector3 basePosition, Quaternion baseRotation,
+        Vector3 targetPosition, Quaternion targetRotation, float weight)
+    {
+        if (segment == null)
+            return;
+        segment.localPosition = Vector3.Lerp(basePosition, targetPosition, weight);
+        segment.localRotation = Quaternion.Slerp(baseRotation, targetRotation, weight);
+    }
+
+    private void EnsureLegBaselines()
+    {
+        CaptureLegBaseline(leftThigh, ref capturedLeftThigh,
+            ref leftThighBasePosition, ref leftThighBaseRotation);
+        CaptureLegBaseline(leftShin, ref capturedLeftShin,
+            ref leftShinBasePosition, ref leftShinBaseRotation);
+        CaptureLegBaseline(rightThigh, ref capturedRightThigh,
+            ref rightThighBasePosition, ref rightThighBaseRotation);
+        CaptureLegBaseline(rightShin, ref capturedRightShin,
+            ref rightShinBasePosition, ref rightShinBaseRotation);
+    }
+
+    private static void CaptureLegBaseline(
+        Transform segment, ref Transform captured,
+        ref Vector3 basePosition, ref Quaternion baseRotation)
+    {
+        if (segment == null || captured == segment)
+            return;
+        captured = segment;
+        basePosition = segment.localPosition;
+        baseRotation = segment.localRotation;
     }
 
     private void EnsureTorsoBaseline()
@@ -147,6 +225,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         maxMoveSpeed = Mathf.Max(baseMoveSpeed, maxMoveSpeed);
         successesToMaxSpeed = Mathf.Max(1, successesToMaxSpeed);
         cadenceAccelerationPerSuccess = Mathf.Max(0.01f, cadenceAccelerationPerSuccess);
+        slideDeceleration = Mathf.Max(0.01f, slideDeceleration);
         torsoBobHeight = Mathf.Max(0f, torsoBobHeight);
         torsoLeanDegrees = Mathf.Max(0f, torsoLeanDegrees);
     }

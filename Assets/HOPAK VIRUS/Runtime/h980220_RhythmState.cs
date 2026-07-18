@@ -21,6 +21,11 @@ public sealed class h980220_RhythmState
     private readonly float baseSpeed;
     private readonly float speedPerSuccess;
     private readonly float cadenceAccelerationPerSuccess;
+    private h980220_Leg recoverableLeg;
+    private int recoverableStreak;
+    private bool recoverableMoving;
+    private float recoveryRemaining;
+    private float dashGraceRemaining;
 
     public h980220_RhythmState(float stepDuration, float successWindow,
         float baseSpeed, float referenceSpeed, int successesToReferenceSpeed,
@@ -55,32 +60,92 @@ public sealed class h980220_RhythmState
         float currentDuration = CurrentStepDuration;
         bool inWindow = StepElapsed >= currentDuration - CurrentSuccessWindow &&
                         StepElapsed <= currentDuration;
+        if (dashGraceRemaining > 0f)
+        {
+            if (!opposite)
+                return h980220_RhythmInputResult.Failed;
+
+            CompleteStep(leg);
+            return h980220_RhythmInputResult.Success;
+        }
+
         if (!opposite || !inWindow)
         {
-            Reset();
+            BreakRhythm();
             return h980220_RhythmInputResult.Failed;
         }
 
-        ActiveLeg = leg;
-        StepElapsed = 0f;
-        SuccessStreak++;
-        IsMoving = true;
+        CompleteStep(leg);
         return h980220_RhythmInputResult.Success;
+    }
+
+    public float RegisterDash(float graceSeconds)
+    {
+        if (ActiveLeg == h980220_Leg.None && recoveryRemaining > 0f)
+        {
+            ActiveLeg = recoverableLeg;
+            SuccessStreak = recoverableStreak;
+            IsMoving = recoverableMoving;
+        }
+
+        float dashDuration = CurrentStepDuration;
+        h980220_Leg dashLeg = ActiveLeg == h980220_Leg.Left
+            ? h980220_Leg.Right
+            : h980220_Leg.Left;
+        CompleteStep(dashLeg);
+        dashGraceRemaining = Mathf.Max(dashGraceRemaining, Mathf.Max(0f, graceSeconds));
+        recoveryRemaining = 0f;
+        return dashDuration;
     }
 
     public void Tick(float deltaTime)
     {
+        float safeDeltaTime = Mathf.Max(0f, deltaTime);
+        recoveryRemaining = Mathf.Max(0f, recoveryRemaining - safeDeltaTime);
+        dashGraceRemaining = Mathf.Max(0f, dashGraceRemaining - safeDeltaTime);
+
         if (ActiveLeg == h980220_Leg.None)
             return;
-        StepElapsed += Mathf.Max(0f, deltaTime);
-        if (StepElapsed > CurrentStepDuration)
-            Reset();
+        StepElapsed += safeDeltaTime;
+        if (dashGraceRemaining <= 0f && StepElapsed > CurrentStepDuration)
+            BreakRhythm();
     }
 
     public float NormalizedStep => ActiveLeg == h980220_Leg.None
         ? 0f : Mathf.Clamp01(StepElapsed / CurrentStepDuration);
 
     public void Reset()
+    {
+        ResetCore();
+        recoverableLeg = h980220_Leg.None;
+        recoverableStreak = 0;
+        recoverableMoving = false;
+        recoveryRemaining = 0f;
+        dashGraceRemaining = 0f;
+    }
+
+    private void CompleteStep(h980220_Leg leg)
+    {
+        ActiveLeg = leg;
+        StepElapsed = 0f;
+        SuccessStreak++;
+        IsMoving = true;
+    }
+
+    private void BreakRhythm()
+    {
+        if (ActiveLeg != h980220_Leg.None)
+        {
+            recoverableLeg = ActiveLeg;
+            recoverableStreak = SuccessStreak;
+            recoverableMoving = IsMoving;
+            recoveryRemaining = 0.5f;
+        }
+
+        ResetCore();
+    }
+
+    private void ResetCore()
     {
         ActiveLeg = h980220_Leg.None;
         SuccessStreak = 0;

@@ -4,18 +4,22 @@ using UnityEngine;
 public sealed class h980220_PlayerCombat : MonoBehaviour
 {
     [Header("Dash")]
-    [SerializeField] private float dashDuration = 0.22f;
     [SerializeField] private float dashSpeedMultiplier = 3.5f;
-    [SerializeField] private float dashCooldown = 0.65f;
+    [SerializeField] private float rhythmGraceBeforeAndAfter = 0.5f;
+    [SerializeField] private float fallbackDashDuration = 0.5f;
 
     private CharacterController characterController;
     private h980220_PlayerRhythmController rhythmController;
     private bool inputEnabled = true;
+    private float dashStartedAt = float.NegativeInfinity;
     private float dashUntil = float.NegativeInfinity;
-    private float nextDashTime = float.NegativeInfinity;
+    private float dashInitialSpeed;
+    private Vector3 dashDirection;
 
     public bool IsDashing => inputEnabled && Time.time < dashUntil;
-    public float CurrentMovementSpeedMultiplier => IsDashing ? dashSpeedMultiplier : 1f;
+    public float CurrentMovementSpeedMultiplier => IsDashing
+        ? 1f + (dashSpeedMultiplier - 1f) * CurrentGlide(Time.time)
+        : 1f;
 
     private void Awake()
     {
@@ -26,7 +30,7 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
     private void Update()
     {
         float now = Time.time;
-        if (inputEnabled && Input.GetKeyDown(KeyCode.Space))
+        if (inputEnabled && Input.GetKeyDown(KeyCode.S))
             DashAtTime(now);
 
         if (!inputEnabled || now >= dashUntil)
@@ -34,12 +38,9 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
 
         if (characterController == null)
             characterController = GetComponent<CharacterController>();
-        if (rhythmController == null)
-            rhythmController = GetComponent<h980220_PlayerRhythmController>();
 
-        float currentSpeed = rhythmController == null ? 0f : rhythmController.CurrentSpeed;
         characterController.Move(
-            transform.forward * currentSpeed * dashSpeedMultiplier * Time.deltaTime);
+            dashDirection * dashInitialSpeed * CurrentGlide(now) * Time.deltaTime);
     }
 
     internal bool ProcessInputAtTime(bool dashPressed, float now)
@@ -52,7 +53,6 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
         return DashAtTime(Time.time);
     }
 
-    // Kept as a compatibility wrapper for existing scene/test callers.
     public bool Fire()
     {
         return Dash();
@@ -60,11 +60,21 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
 
     internal bool DashAtTime(float now)
     {
-        if (!inputEnabled || now < nextDashTime)
+        if (!inputEnabled)
             return false;
 
-        dashUntil = now + dashDuration;
-        nextDashTime = now + dashCooldown;
+        if (rhythmController == null)
+            rhythmController = GetComponent<h980220_PlayerRhythmController>();
+
+        float duration = rhythmController == null
+            ? fallbackDashDuration
+            : rhythmController.RegisterDashBeat(rhythmGraceBeforeAndAfter);
+        float currentSpeed = rhythmController == null ? 0f : rhythmController.CurrentSpeed;
+
+        dashStartedAt = now;
+        dashUntil = now + Mathf.Max(0.01f, duration);
+        dashInitialSpeed = currentSpeed * dashSpeedMultiplier;
+        dashDirection = transform.forward;
         return true;
     }
 
@@ -81,6 +91,13 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
         }
 
         return enemyResolvedContact;
+    }
+
+    private float CurrentGlide(float now)
+    {
+        float duration = Mathf.Max(0.01f, dashUntil - dashStartedAt);
+        float progress = Mathf.Clamp01((now - dashStartedAt) / duration);
+        return 1f - progress * progress;
     }
 
     private void OnControllerColliderHit(ControllerColliderHit hit)
@@ -104,8 +121,8 @@ public sealed class h980220_PlayerCombat : MonoBehaviour
 
     private void OnValidate()
     {
-        dashDuration = Mathf.Max(0.01f, dashDuration);
-        dashSpeedMultiplier = Mathf.Max(0f, dashSpeedMultiplier);
-        dashCooldown = Mathf.Max(dashDuration, dashCooldown);
+        dashSpeedMultiplier = Mathf.Max(1f, dashSpeedMultiplier);
+        rhythmGraceBeforeAndAfter = Mathf.Max(0f, rhythmGraceBeforeAndAfter);
+        fallbackDashDuration = Mathf.Max(0.01f, fallbackDashDuration);
     }
 }

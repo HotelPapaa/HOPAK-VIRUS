@@ -50,6 +50,14 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     private Transform cylinderRightShin;
     private Vector3 cylinderTorsoBasePosition;
     private Quaternion cylinderTorsoBaseRotation;
+    private Vector3 cylinderLeftThighBasePosition;
+    private Vector3 cylinderLeftShinBasePosition;
+    private Vector3 cylinderRightThighBasePosition;
+    private Vector3 cylinderRightShinBasePosition;
+    private Quaternion cylinderLeftThighBaseRotation;
+    private Quaternion cylinderLeftShinBaseRotation;
+    private Quaternion cylinderRightThighBaseRotation;
+    private Quaternion cylinderRightShinBaseRotation;
 
     public event Action<h980220_EnemyController> Infected;
 
@@ -348,21 +356,45 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
             : h980220_Leg.Right;
         h980220_LegPose pose = h980220_HopakPose.Evaluate(activeLeg, step - stepIndex);
 
-        if (cylinderLeftThigh != null)
-            cylinderLeftThigh.localRotation = Quaternion.Euler(pose.LeftThighX, 0f, 0f);
-        if (cylinderLeftShin != null)
-            cylinderLeftShin.localRotation = Quaternion.Euler(pose.LeftShinX, 0f, 0f);
-        if (cylinderRightThigh != null)
-            cylinderRightThigh.localRotation = Quaternion.Euler(pose.RightThighX, 0f, 0f);
-        if (cylinderRightShin != null)
-            cylinderRightShin.localRotation = Quaternion.Euler(pose.RightShinX, 0f, 0f);
+        ApplyCylinderSegment(cylinderLeftThigh,
+            cylinderLeftThighBasePosition, cylinderLeftThighBaseRotation,
+            h980220_HopakPose.LeftThighTarget(activeLeg),
+            h980220_HopakPose.LeftThighRotation(activeLeg), pose.Weight);
+        ApplyCylinderSegment(cylinderLeftShin,
+            cylinderLeftShinBasePosition, cylinderLeftShinBaseRotation,
+            h980220_HopakPose.LeftShinTarget(activeLeg),
+            h980220_HopakPose.LeftShinRotation(activeLeg), pose.Weight);
+        ApplyCylinderSegment(cylinderRightThigh,
+            cylinderRightThighBasePosition, cylinderRightThighBaseRotation,
+            h980220_HopakPose.RightThighTarget(activeLeg),
+            h980220_HopakPose.RightThighRotation(activeLeg), pose.Weight);
+        ApplyCylinderSegment(cylinderRightShin,
+            cylinderRightShinBasePosition, cylinderRightShinBaseRotation,
+            h980220_HopakPose.RightShinTarget(activeLeg),
+            h980220_HopakPose.RightShinRotation(activeLeg), pose.Weight);
         if (cylinderTorso != null)
         {
-            cylinderTorso.localPosition = cylinderTorsoBasePosition +
-                                           Vector3.down * (pose.TorsoDip * danceHeight);
-            cylinderTorso.localRotation = cylinderTorsoBaseRotation *
-                Quaternion.Euler(0f, 0f, pose.TorsoLean * danceLeanDegrees);
+            float heightStrength = danceHeight / 0.2f;
+            float leanStrength = danceLeanDegrees / 12f;
+            Vector3 targetPosition = cylinderTorsoBasePosition +
+                                     Vector3.down * (0.508f * heightStrength);
+            cylinderTorso.localPosition = Vector3.Lerp(
+                cylinderTorsoBasePosition, targetPosition, pose.Weight);
+            cylinderTorso.localRotation = Quaternion.Slerp(
+                cylinderTorsoBaseRotation,
+                cylinderTorsoBaseRotation * h980220_HopakPose.TorsoRotation(
+                    activeLeg, leanStrength), pose.Weight);
         }
+    }
+
+    private static void ApplyCylinderSegment(
+        Transform segment, Vector3 basePosition, Quaternion baseRotation,
+        Vector3 targetPosition, Quaternion targetRotation, float weight)
+    {
+        if (segment == null)
+            return;
+        segment.localPosition = Vector3.Lerp(basePosition, targetPosition, weight);
+        segment.localRotation = Quaternion.Slerp(baseRotation, targetRotation, weight);
     }
 
     private void EnsureCylinderModel()
@@ -395,17 +427,18 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         cylinderTorso = CreateCylinder("Torso", modelRoot,
             new Vector3(0f, 2.1f, 0f), new Vector3(1.2f, 0.7f, 0.8f), sourceMaterial);
         cylinderLeftThigh = CreateCylinder("LeftThigh", modelRoot,
-            new Vector3(-0.4f, 1.2f, 0f), new Vector3(0.35f, 0.45f, 0.35f), sourceMaterial);
-        cylinderLeftShin = CreateCylinder("LeftShin", cylinderLeftThigh,
-            new Vector3(0f, -0.85f, 0f), new Vector3(0.9f, 0.9f, 0.9f), sourceMaterial);
+            new Vector3(-0.4f, 1.2f, 0f), new Vector3(0.35f, 0.58f, 0.35f), sourceMaterial);
+        cylinderLeftShin = CreateCylinder("LeftShin", modelRoot,
+            new Vector3(-0.4f, 0.435f, 0f), new Vector3(0.315f, 0.81f, 0.315f), sourceMaterial);
         cylinderRightThigh = CreateCylinder("RightThigh", modelRoot,
-            new Vector3(0.4f, 1.2f, 0f), new Vector3(0.35f, 0.45f, 0.35f), sourceMaterial);
-        cylinderRightShin = CreateCylinder("RightShin", cylinderRightThigh,
-            new Vector3(0f, -0.85f, 0f), new Vector3(0.9f, 0.9f, 0.9f), sourceMaterial);
+            new Vector3(0.4f, 1.2f, 0f), new Vector3(0.35f, 0.58f, 0.35f), sourceMaterial);
+        cylinderRightShin = CreateCylinder("RightShin", modelRoot,
+            new Vector3(0.4f, 0.435f, 0f), new Vector3(0.315f, 0.81f, 0.315f), sourceMaterial);
 
         bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
         cylinderTorsoBasePosition = cylinderTorso.localPosition;
         cylinderTorsoBaseRotation = cylinderTorso.localRotation;
+        CaptureCylinderBaselines();
 
         if (characterController != null)
         {
@@ -420,13 +453,38 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         cylinderTorso = modelRoot.Find("Torso");
         cylinderLeftThigh = modelRoot.Find("LeftThigh");
         cylinderRightThigh = modelRoot.Find("RightThigh");
-        cylinderLeftShin = cylinderLeftThigh == null ? null : cylinderLeftThigh.Find("LeftShin");
-        cylinderRightShin = cylinderRightThigh == null ? null : cylinderRightThigh.Find("RightShin");
+        cylinderLeftShin = modelRoot.Find("LeftShin");
+        cylinderRightShin = modelRoot.Find("RightShin");
         bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
         if (cylinderTorso != null)
         {
             cylinderTorsoBasePosition = cylinderTorso.localPosition;
             cylinderTorsoBaseRotation = cylinderTorso.localRotation;
+        }
+        CaptureCylinderBaselines();
+    }
+
+    private void CaptureCylinderBaselines()
+    {
+        if (cylinderLeftThigh != null)
+        {
+            cylinderLeftThighBasePosition = cylinderLeftThigh.localPosition;
+            cylinderLeftThighBaseRotation = cylinderLeftThigh.localRotation;
+        }
+        if (cylinderLeftShin != null)
+        {
+            cylinderLeftShinBasePosition = cylinderLeftShin.localPosition;
+            cylinderLeftShinBaseRotation = cylinderLeftShin.localRotation;
+        }
+        if (cylinderRightThigh != null)
+        {
+            cylinderRightThighBasePosition = cylinderRightThigh.localPosition;
+            cylinderRightThighBaseRotation = cylinderRightThigh.localRotation;
+        }
+        if (cylinderRightShin != null)
+        {
+            cylinderRightShinBasePosition = cylinderRightShin.localPosition;
+            cylinderRightShinBaseRotation = cylinderRightShin.localRotation;
         }
     }
 

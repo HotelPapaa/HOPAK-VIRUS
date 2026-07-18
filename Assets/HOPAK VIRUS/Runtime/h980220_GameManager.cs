@@ -76,7 +76,7 @@ public sealed class h980220_GameManager : MonoBehaviour
             {
                 label.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\n" +
                              "LEFT / RIGHT: TURN\nTOUCH: INFECT\n" +
-                             "SPACE: DASH / DEFEAT POLICE\nENTER: START";
+                             "S: DASH / DEFEAT POLICE\nENTER: START";
                 break;
             }
         }

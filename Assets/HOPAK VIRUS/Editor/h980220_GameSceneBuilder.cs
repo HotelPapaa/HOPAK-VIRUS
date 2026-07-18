@@ -411,7 +411,7 @@ public static class h980220_GameSceneBuilder
 
         titlePanel = Panel("TitlePanel", canvasObject.transform);
         Text title = UiText("TitleText", titlePanel.transform, font, 44, TextAnchor.MiddleCenter);
-        title.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\nLEFT / RIGHT: TURN\nTOUCH: INFECT\nSPACE: DASH / DEFEAT POLICE\nENTER: START";
+        title.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\nLEFT / RIGHT: TURN\nTOUCH: INFECT\nS: DASH / DEFEAT POLICE\nENTER: START";
         Stretch(title.rectTransform, new Vector2(300f, 180f), new Vector2(-300f, -180f));
 
         hudPanel = Panel("HudPanel", canvasObject.transform);
