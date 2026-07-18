@@ -18,13 +18,14 @@ public sealed class h980220_ProjectilePhysicsTests
     [UnityTest]
     public IEnumerator MovingProjectileTriggersReceiverAndDestroysItself()
     {
+        Vector3 isolatedPosition = new Vector3(100f, 100f, 100f);
         var target = new GameObject("Task4 PlayMode Virus Target");
         h980220_PlayModeVirusReceiver receiver = target.AddComponent<h980220_PlayModeVirusReceiver>();
         target.AddComponent<BoxCollider>();
-        target.transform.position = Vector3.zero;
+        target.transform.position = isolatedPosition;
 
         var projectileObject = new GameObject("Task4 PlayMode Virus Projectile");
-        projectileObject.transform.position = Vector3.back * 2f;
+        projectileObject.transform.position = isolatedPosition + Vector3.back * 2f;
         h980220_Projectile projectile = projectileObject.AddComponent<h980220_Projectile>();
         projectile.Initialize(h980220_ProjectileKind.Virus, Vector3.forward, 0.01f, 100f);
 

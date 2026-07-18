@@ -19,6 +19,7 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
 
     private CharacterController characterController;
     private float invulnerableUntil = float.NegativeInfinity;
+    private bool cureEnabled = true;
 
     public event Action Cured;
 
@@ -37,7 +38,7 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
 
     public bool ReceiveCureAtTime(Vector3 sourcePosition, float now)
     {
-        if (RemainingInfection <= 0 || now < invulnerableUntil)
+        if (!cureEnabled || RemainingInfection <= 0 || now < invulnerableUntil)
             return false;
 
         invulnerableUntil = now + invulnerabilitySeconds;
@@ -63,6 +64,11 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
         RemainingInfection = maxInfection;
         invulnerableUntil = float.NegativeInfinity;
         RefreshVisuals();
+    }
+
+    public void SetCureEnabled(bool enabled)
+    {
+        cureEnabled = enabled;
     }
 
     private void RefreshVisuals()

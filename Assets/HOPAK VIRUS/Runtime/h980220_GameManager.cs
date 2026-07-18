@@ -54,6 +54,7 @@ public sealed class h980220_GameManager : MonoBehaviour
         }
 
         SetPlayerInput(false);
+        SetPlayerCureEnabled(false);
         SetActive(titlePanel, true);
         SetActive(hudPanel, false);
         SetActive(resultPanel, false);
@@ -88,6 +89,7 @@ public sealed class h980220_GameManager : MonoBehaviour
         SetActive(hudPanel, true);
         SetActive(resultPanel, false);
         SetPlayerInput(true);
+        SetPlayerCureEnabled(true);
         SetCurrentRoom(0);
     }
 
@@ -141,6 +143,7 @@ public sealed class h980220_GameManager : MonoBehaviour
     private void Finish(string message)
     {
         SetPlayerInput(false);
+        SetPlayerCureEnabled(false);
         foreach (h980220_RoomController room in rooms)
         {
             if (room != null)
@@ -159,6 +162,12 @@ public sealed class h980220_GameManager : MonoBehaviour
             playerRhythmController.SetInputEnabled(enabled);
         if (playerCombat != null)
             playerCombat.SetInputEnabled(enabled);
+    }
+
+    private void SetPlayerCureEnabled(bool enabled)
+    {
+        if (playerInfection != null)
+            playerInfection.SetCureEnabled(enabled);
     }
 
     private static void SetActive(GameObject target, bool active)
