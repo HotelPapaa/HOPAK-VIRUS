@@ -73,6 +73,34 @@ public sealed class h980220_SceneRobustnessTests
     }
 
     [UnityTest]
+    public IEnumerator GeneratedRoomOneRearOpeningBlocksPlayerWithoutBlockingCameraSightline()
+    {
+        yield return SceneManager.LoadSceneAsync("HOPAK VIRUS", LoadSceneMode.Single);
+        yield return null;
+        Physics.SyncTransforms();
+
+        GameObject player = GameObject.Find("Player");
+        Camera camera = Camera.main;
+        Assert.That(player, Is.Not.Null);
+        Assert.That(camera, Is.Not.Null);
+        CharacterController controller = player.GetComponent<CharacterController>();
+        Assert.That(controller, Is.Not.Null);
+
+        controller.Move(Vector3.back * 5f);
+        Physics.SyncTransforms();
+
+        Assert.That(player.transform.position.z, Is.GreaterThan(-7.4f),
+            "The player crossed the Room 1 south-center rear opening.");
+        Collider[] obstructions = ObstructionsBetween(
+            player.transform.position + Vector3.up * 1.5f,
+            camera.transform.position,
+            player.transform,
+            camera.transform);
+        Assert.That(obstructions, Is.Empty,
+            "The rear escape barrier must remain below the gameplay camera sightline.");
+    }
+
+    [UnityTest]
     public IEnumerator FollowCameraResolvesInterveningWallWithPadding()
     {
         GameObject target = Track(new GameObject("Camera Target"));

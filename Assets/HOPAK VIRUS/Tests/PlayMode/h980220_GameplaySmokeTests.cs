@@ -92,6 +92,74 @@ public sealed class h980220_GameplaySmokeTests
     }
 
     [UnityTest]
+    public IEnumerator RealPlayerVirusProjectileInfectsActualEnemyThroughPhysicsAtShortRange()
+    {
+        h980220_GameManager manager = Find<h980220_GameManager>();
+        h980220_PlayerCombat combat = Find<h980220_PlayerCombat>();
+        GameObject player = FindObject("Player");
+        h980220_EnemyController target = EnemiesIn("Room 1 Plaza").First();
+        ProcessManagerInput(manager, true, false);
+        foreach (h980220_EnemyController enemy in FindAll<h980220_EnemyController>())
+            enemy.SetCombatEnabled(false);
+
+        player.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+        target.transform.position = Vector3.forward * 2.5f;
+        Physics.SyncTransforms();
+
+        Assert.That(ProcessCombat(combat, true, 0f), Is.True);
+        for (int frame = 0; frame < 120 && !target.IsInfected; frame++)
+        {
+            yield return new WaitForFixedUpdate();
+            yield return null;
+        }
+
+        Assert.That(target.IsInfected, Is.True,
+            "A real player projectile did not infect the actual nearby enemy through physics.");
+    }
+
+    [UnityTest]
+    public IEnumerator BasicAndEliteContactCureAcrossRealFloorAtTorsoHeight()
+    {
+        h980220_GameManager manager = Find<h980220_GameManager>();
+        h980220_PlayerInfection infection = Find<h980220_PlayerInfection>();
+        h980220_EnemyController basic = FindAll<h980220_EnemyController>().First(enemy =>
+            enemy.EnemyType == h980220_EnemyType.Basic);
+        h980220_EnemyController elite = FindAll<h980220_EnemyController>().Single(enemy =>
+            enemy.EnemyType == h980220_EnemyType.Elite);
+        ProcessManagerInput(manager, true, false);
+        foreach (h980220_EnemyController enemy in FindAll<h980220_EnemyController>())
+            enemy.SetCombatEnabled(false);
+
+        infection.transform.position = Vector3.down * 0.01f;
+        basic.transform.position = Vector3.right * 0.75f + Vector3.up * 0.01f;
+        basic.SetCombatEnabled(true);
+        Physics.SyncTransforms();
+        Assert.That(Physics.Linecast(
+            basic.transform.position, infection.transform.position, out RaycastHit basicFloorHit),
+            Is.True);
+        Assert.That(basicFloorHit.collider.name, Is.EqualTo("Floor"));
+        Invoke(basic, "Tick", 0f, 0f);
+        Assert.That(infection.RemainingInfection, Is.EqualTo(2),
+            "Basic contact cure was blocked by the coplanar floor collider.");
+
+        infection.ResetInfection();
+        infection.transform.position = Vector3.down * 0.01f;
+        basic.SetCombatEnabled(false);
+        basic.transform.position = Vector3.right * 10f;
+        elite.transform.position = Vector3.right * 0.75f + Vector3.up * 0.01f;
+        elite.SetCombatEnabled(true);
+        Physics.SyncTransforms();
+        Assert.That(Physics.Linecast(
+            elite.transform.position, infection.transform.position, out RaycastHit eliteFloorHit),
+            Is.True);
+        Assert.That(eliteFloorHit.collider.name, Is.EqualTo("Floor"));
+        Invoke(elite, "Tick", 2f, 0f);
+        Assert.That(infection.RemainingInfection, Is.EqualTo(2),
+            "Elite contact cure was blocked by the coplanar floor collider.");
+        yield return null;
+    }
+
+    [UnityTest]
     public IEnumerator ThreeCureHitsReachTerminalCuredStateAndLockGameplay()
     {
         h980220_GameManager manager = Find<h980220_GameManager>();

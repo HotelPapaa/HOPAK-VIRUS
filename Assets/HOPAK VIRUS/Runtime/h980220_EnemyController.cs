@@ -150,16 +150,52 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         if (offset.sqrMagnitude > contactRange * contactRange)
             return;
 
-        if (Physics.Linecast(transform.position, player.position, out RaycastHit hit,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
-            !hit.transform.IsChildOf(player) && !player.IsChildOf(hit.transform))
-        {
+        if (!HasClearContactLine())
             return;
-        }
 
         h980220_PlayerInfection infection = player.GetComponentInParent<h980220_PlayerInfection>();
         if (infection != null)
             infection.ReceiveCureAtTime(transform.position, now);
+    }
+
+    private bool HasClearContactLine()
+    {
+        Vector3 enemyPoint = ControllerCenter(transform);
+        Vector3 playerPoint = ControllerCenter(player);
+        Vector3 offset = playerPoint - enemyPoint;
+        float distance = offset.magnitude;
+        if (distance <= 0.001f)
+            return true;
+
+        foreach (RaycastHit hit in Physics.RaycastAll(
+                     enemyPoint,
+                     offset / distance,
+                     distance,
+                     Physics.DefaultRaycastLayers,
+                     QueryTriggerInteraction.Ignore))
+        {
+            if (hit.collider != null &&
+                !BelongsToHierarchy(hit.collider.transform, transform) &&
+                !BelongsToHierarchy(hit.collider.transform, player))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Vector3 ControllerCenter(Transform actor)
+    {
+        CharacterController controller = actor.GetComponent<CharacterController>();
+        return controller == null
+            ? actor.position + Vector3.up
+            : actor.TransformPoint(controller.center);
+    }
+
+    private static bool BelongsToHierarchy(Transform candidate, Transform actor)
+    {
+        return candidate == actor || candidate.IsChildOf(actor) || actor.IsChildOf(candidate);
     }
 
     private void TryFireCure(float now)

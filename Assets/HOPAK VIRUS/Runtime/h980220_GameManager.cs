@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -30,6 +31,7 @@ public sealed class h980220_GameManager : MonoBehaviour
     [SerializeField] private h980220_RoomController[] rooms = Array.Empty<h980220_RoomController>();
 
     private int currentRoomIndex = -1;
+    private readonly HashSet<int> completedRooms = new HashSet<int>();
 
     public h980220_GameState State { get; private set; } = h980220_GameState.Title;
 
@@ -40,6 +42,7 @@ public sealed class h980220_GameManager : MonoBehaviour
     {
         State = h980220_GameState.Title;
         currentRoomIndex = -1;
+        completedRooms.Clear();
 
         if (playerInfection != null)
             playerInfection.Cured += Lose;
@@ -131,13 +134,26 @@ public sealed class h980220_GameManager : MonoBehaviour
 
     private void HandleRoomCompleted(int index)
     {
-        if (State != h980220_GameState.Playing || index != currentRoomIndex)
+        if (State != h980220_GameState.Playing || index < 0 || index >= rooms.Length ||
+            !completedRooms.Add(index))
             return;
 
-        if (currentRoomIndex == rooms.Length - 1)
-            Win();
-        else
+        AdvanceThroughCompletedRooms();
+    }
+
+    private void AdvanceThroughCompletedRooms()
+    {
+        while (State == h980220_GameState.Playing &&
+               completedRooms.Contains(currentRoomIndex))
+        {
+            if (currentRoomIndex == rooms.Length - 1)
+            {
+                Win();
+                return;
+            }
+
             SetCurrentRoom(currentRoomIndex + 1);
+        }
     }
 
     private void Finish(string message)

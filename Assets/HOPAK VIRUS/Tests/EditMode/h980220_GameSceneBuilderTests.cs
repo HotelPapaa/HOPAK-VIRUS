@@ -97,6 +97,45 @@ public sealed class h980220_GameSceneBuilderTests
     }
 
     [Test]
+    public void EnemyTypesHaveDistinctCubeSilhouettesAndRangedIsElongated()
+    {
+        h980220_EnemyController[] enemies = UnityEngine.Object.FindObjectsByType<h980220_EnemyController>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Vector3 basicScale = BodyScale(enemies.First(enemy =>
+            enemy.EnemyType == h980220_EnemyType.Basic));
+        Vector3 rangedScale = BodyScale(enemies.First(enemy =>
+            enemy.EnemyType == h980220_EnemyType.Ranged));
+        Vector3 eliteScale = BodyScale(enemies.First(enemy =>
+            enemy.EnemyType == h980220_EnemyType.Elite));
+
+        Assert.That(basicScale, Is.Not.EqualTo(rangedScale));
+        Assert.That(rangedScale, Is.Not.EqualTo(eliteScale));
+        Assert.That(eliteScale, Is.Not.EqualTo(basicScale));
+        Assert.That(rangedScale.y / rangedScale.x,
+            Is.GreaterThan(basicScale.y / basicScale.x));
+        Assert.That(enemies.Select(enemy => enemy.transform.Find("Body"))
+            .All(body => body.GetComponent<MeshFilter>().sharedMesh.name == "Cube"), Is.True);
+    }
+
+    [Test]
+    public void EnemyVisualAndControllerBottomsRestOnOrAboveFloorTop()
+    {
+        Physics.SyncTransforms();
+        foreach (h980220_EnemyController enemy in
+                 UnityEngine.Object.FindObjectsByType<h980220_EnemyController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            Renderer body = enemy.transform.Find("Body").GetComponent<Renderer>();
+            CharacterController controller = enemy.GetComponent<CharacterController>();
+            float controllerBottom = enemy.transform.TransformPoint(controller.center).y -
+                                     controller.height * 0.5f;
+
+            Assert.That(body.bounds.min.y, Is.GreaterThanOrEqualTo(-0.001f), enemy.name);
+            Assert.That(controllerBottom, Is.GreaterThanOrEqualTo(-0.001f), enemy.name);
+        }
+    }
+
+    [Test]
     public void EveryRuntimeSerializedDependencyIsAssignedAndRoomsSurviveReload()
     {
         MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
@@ -170,6 +209,7 @@ public sealed class h980220_GameSceneBuilderTests
         string buildSettings = File.ReadAllText(Path.GetFullPath(Path.Combine(
             Application.dataPath, "..", "ProjectSettings", "EditorBuildSettings.asset")));
         Assert.That(buildSettings, Does.Not.Contain("com.unity.input.settings.actions"));
+        Assert.That(PlayerSettings.companyName, Is.EqualTo("h980220"));
     }
 
     [Test]
@@ -229,6 +269,13 @@ public sealed class h980220_GameSceneBuilderTests
     {
         return behaviour != null &&
                behaviour.GetType().Assembly.GetName().Name == "h980220_HopakVirus.Runtime";
+    }
+
+    private static Vector3 BodyScale(h980220_EnemyController enemy)
+    {
+        Transform body = enemy.transform.Find("Body");
+        Assert.That(body, Is.Not.Null, enemy.name);
+        return body.localScale;
     }
 
     private static GameObject Find(string path)

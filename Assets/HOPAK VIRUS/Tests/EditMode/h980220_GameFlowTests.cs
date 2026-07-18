@@ -148,6 +148,30 @@ public sealed class h980220_GameFlowTests
     }
 
     [Test]
+    public void OutOfOrderRoomCompletionIsRememberedAndConsumedWhenProgressionReachesIt()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        fixture.Manager.StartGame();
+
+        fixture.Enemies[1].ReceiveVirusHit();
+
+        Assert.That(fixture.Manager.State, Is.EqualTo(h980220_GameState.Playing));
+        Assert.That(fixture.RoomText.text, Is.EqualTo("ROOM 1/3"));
+        Assert.That(fixture.Enemies[2].IsCombatEnabled, Is.False);
+
+        fixture.Enemies[0].ReceiveVirusHit();
+
+        Assert.That(fixture.Manager.State, Is.EqualTo(h980220_GameState.Playing));
+        Assert.That(fixture.RoomText.text, Is.EqualTo("ROOM 3/3"));
+        Assert.That(fixture.Enemies[2].IsCombatEnabled, Is.True);
+
+        fixture.Enemies[2].ReceiveVirusHit();
+
+        Assert.That(fixture.Manager.State, Is.EqualTo(h980220_GameState.Won));
+    }
+
+    [Test]
     public void PlayerCuredEventLosesOnlyOnceAndDisplaysCuredResult()
     {
         fixture = new h980220_GameFlowFixture();

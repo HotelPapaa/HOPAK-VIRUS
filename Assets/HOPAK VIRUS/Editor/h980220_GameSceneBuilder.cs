@@ -61,6 +61,7 @@ public static class h980220_GameSceneBuilder
             rhythm, combat, infection, followCamera, rooms);
 
         ValidateGeneratedScene();
+        PlayerSettings.companyName = "h980220";
         EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), ScenePath);
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         EditorBuildSettings.RemoveConfigObject("com.unity.input.settings.actions");
@@ -187,7 +188,7 @@ public static class h980220_GameSceneBuilder
 
         var firePoint = new GameObject("FirePoint");
         firePoint.transform.SetParent(player.transform, false);
-        firePoint.transform.localPosition = new Vector3(0f, 2f, 0.8f);
+        firePoint.transform.localPosition = new Vector3(0f, 1.4f, 0.8f);
         SetReference(combat, "projectilePrefab", virusProjectile);
         SetReference(combat, "firePoint", firePoint.transform);
 
@@ -229,6 +230,8 @@ public static class h980220_GameSceneBuilder
             new Vector3(8f, 3f, 0.5f), wallMaterial);
         Cube("South East Wall", room1Walls, new Vector3(6f, 1.5f, -8f),
             new Vector3(8f, 3f, 0.5f), wallMaterial);
+        Cube("South Center Barrier", room1Walls, new Vector3(0f, 0.5f, -8f),
+            new Vector3(4f, 1f, 0.5f), wallMaterial);
         Cube("North West Wall", room1Walls, new Vector3(-6f, 1.5f, 8f),
             new Vector3(8f, 3f, 0.5f), wallMaterial);
         Cube("North East Wall", room1Walls, new Vector3(6f, 1.5f, 8f),
@@ -333,15 +336,39 @@ public static class h980220_GameSceneBuilder
         var root = new GameObject(name);
         root.transform.SetParent(parent);
         root.transform.position = position;
-        CharacterController controller = root.AddComponent<CharacterController>();
-        controller.center = Vector3.up;
-        controller.height = type == h980220_EnemyType.Elite ? 2.8f : 2f;
-        controller.radius = type == h980220_EnemyType.Elite ? 0.8f : 0.55f;
+        float bodyCenterY;
+        Vector3 bodyScale;
+        float controllerHeight;
+        float controllerRadius;
+        switch (type)
+        {
+            case h980220_EnemyType.Ranged:
+                bodyCenterY = 1.2f;
+                bodyScale = new Vector3(0.8f, 2.4f, 1.2f);
+                controllerHeight = 2.4f;
+                controllerRadius = 0.5f;
+                break;
+            case h980220_EnemyType.Elite:
+                bodyCenterY = 1.4f;
+                bodyScale = new Vector3(1.6f, 2.8f, 1.6f);
+                controllerHeight = 2.8f;
+                controllerRadius = 0.8f;
+                break;
+            default:
+                bodyCenterY = 1f;
+                bodyScale = new Vector3(1f, 2f, 1f);
+                controllerHeight = 2f;
+                controllerRadius = 0.55f;
+                break;
+        }
 
-        GameObject body = VisualCube("Body", root.transform, Vector3.up,
-            type == h980220_EnemyType.Elite
-                ? new Vector3(1.6f, 2.8f, 1.6f)
-                : new Vector3(1f, 2f, 1f), material);
+        CharacterController controller = root.AddComponent<CharacterController>();
+        controller.center = Vector3.up * bodyCenterY;
+        controller.height = controllerHeight;
+        controller.radius = controllerRadius;
+
+        GameObject body = VisualCube(
+            "Body", root.transform, Vector3.up * bodyCenterY, bodyScale, material);
         var firePoint = new GameObject("FirePoint");
         firePoint.transform.SetParent(root.transform, false);
         firePoint.transform.localPosition = new Vector3(0f, 1.2f, 0.7f);
