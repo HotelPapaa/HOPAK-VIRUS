@@ -1,0 +1,14 @@
+{
+  "name": "h980220_HopakVirus.Editor",
+  "rootNamespace": "",
+  "references": ["h980220_HopakVirus.Runtime", "Unity.UGUI"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

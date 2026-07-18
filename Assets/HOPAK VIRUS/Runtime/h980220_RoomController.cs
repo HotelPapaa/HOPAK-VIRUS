@@ -4,14 +4,23 @@ using UnityEngine;
 
 public sealed class h980220_RoomController : MonoBehaviour
 {
+    [SerializeField] private int roomIndex;
+    [SerializeField] private h980220_EnemyController[] roomEnemies =
+        Array.Empty<h980220_EnemyController>();
+    [SerializeField] private Transform exitDoor;
+
     private readonly List<h980220_EnemyController> enemies = new List<h980220_EnemyController>();
-    private int roomIndex;
-    private Transform exitDoor;
     private bool completed;
 
     public event Action<int> Completed;
 
     public int RemainingEnemies { get; private set; }
+
+    private void Awake()
+    {
+        if (roomEnemies != null && roomEnemies.Length > 0)
+            Initialize(roomIndex, roomEnemies, exitDoor);
+    }
 
     public void Initialize(
         int index,
@@ -38,6 +47,8 @@ public sealed class h980220_RoomController : MonoBehaviour
                     enemy.Infected += HandleEnemyInfected;
             }
         }
+
+        this.roomEnemies = enemies.ToArray();
 
         RemainingEnemies = 0;
         foreach (h980220_EnemyController enemy in enemies)
