@@ -17,6 +17,8 @@ public sealed class h980220_FollowCamera : MonoBehaviour
     [SerializeField] private float speedFramingSmooth = 3.5f;
 
     [SerializeField] private float positionSmooth = 8f;
+    [Tooltip("Maximum world-space distance the camera may lag behind its desired position.")]
+    [SerializeField] private float maximumTrackingLag = 3f;
     [SerializeField] private float rotationSmooth = 10f;
     [SerializeField] private float obstructionRadius = 0.25f;
     [SerializeField] private float obstructionPadding = 0.3f;
@@ -49,6 +51,12 @@ public sealed class h980220_FollowCamera : MonoBehaviour
         Vector3 desiredPosition = target.TransformPoint(framedOffset);
         Vector3 smoothedPosition = Vector3.Lerp(
             transform.position, desiredPosition, positionSmooth * deltaTime);
+        Vector3 trackingLag = smoothedPosition - desiredPosition;
+        if (trackingLag.sqrMagnitude > maximumTrackingLag * maximumTrackingLag)
+        {
+            smoothedPosition = desiredPosition +
+                               trackingLag.normalized * maximumTrackingLag;
+        }
         transform.position = ResolveObstruction(lookPivot, smoothedPosition);
 
         Vector3 lookDirection = lookPivot - transform.position;
@@ -129,14 +137,34 @@ public sealed class h980220_FollowCamera : MonoBehaviour
 
     private bool IsIgnoredHierarchy(Transform hitTransform)
     {
-        return hitTransform == null ||
-               hitTransform.IsChildOf(target) ||
-               hitTransform.IsChildOf(transform);
+        if (hitTransform == null ||
+            hitTransform.IsChildOf(target) ||
+            hitTransform.IsChildOf(transform))
+        {
+            return true;
+        }
+
+        if (hitTransform.GetComponentInParent<h980220_EnemyController>() != null ||
+            hitTransform.GetComponentInParent<h980220_Projectile>() != null)
+        {
+            return true;
+        }
+
+        Transform current = hitTransform;
+        while (current != null)
+        {
+            if (current.name == "h980220_InfiniteMap")
+                return true;
+            current = current.parent;
+        }
+
+        return false;
     }
 
     private void OnValidate()
     {
         positionSmooth = Mathf.Max(0f, positionSmooth);
+        maximumTrackingLag = Mathf.Max(0.1f, maximumTrackingLag);
         rotationSmooth = Mathf.Max(0f, rotationSmooth);
         obstructionRadius = Mathf.Max(0.01f, obstructionRadius);
         obstructionPadding = Mathf.Max(0f, obstructionPadding);

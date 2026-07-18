@@ -411,7 +411,11 @@ public static class h980220_GameSceneBuilder
 
         titlePanel = Panel("TitlePanel", canvasObject.transform);
         Text title = UiText("TitleText", titlePanel.transform, font, 44, TextAnchor.MiddleCenter);
-        title.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\nLEFT / RIGHT: TURN\nTOUCH: INFECT\nS: DASH / DEFEAT POLICE\nENTER: START";
+        title.text = "HOPAK VIRUS\n\n승리 조건: 각 스테이지에서 2분 동안 살아남으십시오.\n\n" +
+                     "A / D: 호팍 스텝\n← / →: 방향 전환\n" +
+                     "접촉: 시민과 메딕 감염\nS: 대시 / 경찰 처치\n" +
+                     "SPACE: 점프\n경찰: 접촉 시 체력이 1칸 감소합니다.\n" +
+                     "ENTER: 게임 시작";
         Stretch(title.rectTransform, new Vector2(300f, 180f), new Vector2(-300f, -180f));
 
         hudPanel = Panel("HudPanel", canvasObject.transform);
@@ -432,12 +436,19 @@ public static class h980220_GameSceneBuilder
         }
 
         roomText = UiText("RoomText", hudPanel.transform, font, 30, TextAnchor.UpperRight);
-        roomText.text = "ROOM 1/3";
+        roomText.text = "구역 1/3";
         roomText.rectTransform.anchorMin = new Vector2(1f, 1f);
         roomText.rectTransform.anchorMax = new Vector2(1f, 1f);
         roomText.rectTransform.pivot = new Vector2(1f, 1f);
-        roomText.rectTransform.anchoredPosition = new Vector2(-40f, -35f);
-        roomText.rectTransform.sizeDelta = new Vector2(340f, 80f);
+        roomText.rectTransform.anchoredPosition = new Vector2(-24f, -28f);
+        roomText.rectTransform.sizeDelta = new Vector2(620f, 48f);
+        roomText.color = new Color(1f, 0.86f, 0.12f, 1f);
+        roomText.fontStyle = FontStyle.Bold;
+        roomText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        roomText.verticalOverflow = VerticalWrapMode.Truncate;
+        Outline roomOutline = roomText.gameObject.AddComponent<Outline>();
+        roomOutline.effectColor = new Color(0.025f, 0.035f, 0.09f, 1f);
+        roomOutline.effectDistance = new Vector2(2f, -2f);
 
         resultPanel = Panel("ResultPanel", canvasObject.transform);
         resultText = UiText("ResultText", resultPanel.transform, font, 44, TextAnchor.MiddleCenter);
@@ -445,7 +456,7 @@ public static class h980220_GameSceneBuilder
         Stretch(resultText.rectTransform, new Vector2(260f, 280f), new Vector2(-260f, -180f));
         Text restartText = UiText(
             "RestartText", resultPanel.transform, font, 30, TextAnchor.MiddleCenter);
-        restartText.text = "R: RESTART";
+        restartText.text = "R: 다시 시작";
         restartText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
         restartText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
         restartText.rectTransform.anchoredPosition = new Vector2(0f, -120f);

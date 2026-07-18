@@ -3,11 +3,11 @@ using UnityEngine;
 
 public enum h980220_EnemyType
 {
-    [InspectorName("Pedestrian")]
+    [InspectorName("시민")]
     Basic,
-    [InspectorName("Medic")]
+    [InspectorName("메딕")]
     Ranged,
-    [InspectorName("Police")]
+    [InspectorName("경찰")]
     Elite
 }
 
@@ -16,6 +16,10 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
 {
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     private static readonly int ColorId = Shader.PropertyToID("_Color");
+    private static readonly Color MedicBodyColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+    private static readonly Color MedicCrossColor = new Color(0.9f, 0.04f, 0.04f, 1f);
+    private static readonly Color PoliceRedColor = new Color(0.9f, 0.04f, 0.06f, 1f);
+    private static readonly Color PoliceBlueColor = new Color(0.03f, 0.2f, 0.95f, 1f);
 
     [SerializeField] private h980220_EnemyType enemyType;
     [SerializeField] private int requiredHits = 1;
@@ -26,9 +30,14 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     [InspectorName("Projectile Respawn Time")]
     [SerializeField] private float fireInterval = 1f;
     [SerializeField] private float projectileSpeed = 7f;
+    [SerializeField] private float projectileRange = 12f;
     [SerializeField] private float projectileSizeMultiplier = 1f;
     [SerializeField] private h980220_Projectile cureProjectilePrefab;
     [SerializeField] private Transform firePoint;
+
+    [Header("시민 무작위 이동")]
+    [SerializeField] private float wanderDirectionChangeMin = 0.8f;
+    [SerializeField] private float wanderDirectionChangeMax = 2.2f;
 
     [Header("Infection Visuals")]
     [SerializeField] private Renderer[] bodyRenderers = Array.Empty<Renderer>();
@@ -58,11 +67,15 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     private Quaternion cylinderLeftShinBaseRotation;
     private Quaternion cylinderRightThighBaseRotation;
     private Quaternion cylinderRightShinBaseRotation;
+    private h980220_EndlessWorldController endlessWorld;
+    private Vector3 wanderDirection;
+    private float nextWanderDirectionTime = float.NegativeInfinity;
 
     public event Action<h980220_EnemyController> Infected;
 
     public h980220_EnemyType EnemyType => enemyType;
     public bool IsPolice => enemyType == h980220_EnemyType.Elite;
+    public h980220_Projectile CureProjectilePrefab => cureProjectilePrefab;
     public int RequiredHits => requiredHits;
     public bool IsInfected { get; private set; }
     public bool IsCombatEnabled => combatEnabled && !IsInfected;
@@ -71,6 +84,7 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     {
         characterController = GetComponent<CharacterController>();
         EnsureCylinderModel();
+        RefreshColor();
         danceOrigin = transform.position;
         danceRotation = transform.rotation;
     }
@@ -79,17 +93,62 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     {
         EnsureCylinderModel();
         enemyType = type;
+        EnsureRoleVisuals();
         requiredHits = Mathf.Max(1, hitsRequired);
         receivedHits = 0;
         IsInfected = false;
         combatEnabled = true;
         nextFireTime = float.NegativeInfinity;
+        wanderDirection = Vector3.zero;
+        nextWanderDirectionTime = float.NegativeInfinity;
         if (characterController == null)
             characterController = GetComponent<CharacterController>();
         SetCollisionsEnabled(true);
         danceOrigin = transform.position;
         danceRotation = transform.rotation;
         RefreshColor();
+    }
+
+    public void InitializeRuntime(
+        h980220_EnemyType type,
+        Transform playerTarget,
+        h980220_Projectile projectilePrefab,
+        h980220_EndlessWorldController worldController = null,
+        Material runtimeBodyMaterial = null)
+    {
+        player = playerTarget;
+        cureProjectilePrefab = projectilePrefab;
+        endlessWorld = worldController;
+        ApplyRuntimeBodyMaterial(runtimeBodyMaterial);
+        if (firePoint == null)
+        {
+            var firePointObject = new GameObject("FirePoint");
+            firePointObject.transform.SetParent(transform, false);
+            firePointObject.transform.localPosition = new Vector3(0f, 1.2f, 0.7f);
+            firePoint = firePointObject.transform;
+        }
+        Configure(type, 1);
+    }
+
+    private void ApplyRuntimeBodyMaterial(Material material)
+    {
+        if (material == null)
+            return;
+        EnsureCylinderModel();
+        foreach (Renderer bodyRenderer in bodyRenderers)
+        {
+            if (bodyRenderer != null)
+                bodyRenderer.sharedMaterial = material;
+        }
+    }
+
+    public void ConfigureMedicAttack(float shotsPerSecond, float baseProjectileSpeed,
+        float range)
+    {
+        fireInterval = 1f / Mathf.Max(0.05f, shotsPerSecond);
+        projectileSpeed = Mathf.Max(0.1f, baseProjectileSpeed);
+        projectileRange = Mathf.Max(0.5f, range);
+        nextFireTime = float.NegativeInfinity;
     }
 
     public void ReceiveVirusHit()
@@ -120,7 +179,7 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
             if (!playerIsDashing)
                 return false;
 
-            DefeatPolice();
+            InfectPoliceByDash();
             return true;
         }
 
@@ -152,11 +211,14 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         switch (enemyType)
         {
             case h980220_EnemyType.Basic:
-                MoveAwayFromPlayer(deltaTime);
+                MoveRandomly(deltaTime, now);
                 if (IsInfected)
                     return;
                 break;
             case h980220_EnemyType.Ranged:
+                MoveMedicTowardPlayer(deltaTime);
+                if (IsInfected)
+                    return;
                 FacePlayer();
                 TryFireCure(now);
                 break;
@@ -189,7 +251,7 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         playerCombat?.TryContactEnemy(this);
     }
 
-    private void DefeatPolice()
+    private void InfectPoliceByDash()
     {
         if (IsInfected)
             return;
@@ -200,7 +262,6 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         SetCollisionsEnabled(false);
         RefreshColor();
         Infected?.Invoke(this);
-        gameObject.SetActive(false);
     }
 
     private void SetCollisionsEnabled(bool enabled)
@@ -224,15 +285,51 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         if (characterController == null)
             characterController = GetComponent<CharacterController>();
 
-        characterController.Move(direction * movementSpeed * deltaTime);
+        float speedMultiplier = endlessWorld == null
+            ? 1f : endlessWorld.PoliceSpeedMultiplier *
+                   endlessWorld.StageEnemySpeedMultiplier;
+        characterController.Move(direction * movementSpeed * speedMultiplier * deltaTime);
     }
 
-    private void MoveAwayFromPlayer(float deltaTime)
+    private void MoveMedicTowardPlayer(float deltaTime)
     {
         if (deltaTime <= 0f)
             return;
 
-        Vector3 direction = -HorizontalDirectionToPlayer();
+        Vector3 direction = HorizontalDirectionToPlayer();
+        if (direction == Vector3.zero)
+            return;
+
+        if (characterController == null)
+            characterController = GetComponent<CharacterController>();
+
+        float speedMultiplier = endlessWorld == null
+            ? 1f
+            : endlessWorld.MedicProjectileSpeedMultiplier *
+              endlessWorld.StageEnemySpeedMultiplier;
+        transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        characterController.Move(direction * movementSpeed * speedMultiplier * deltaTime);
+    }
+
+    private void MoveRandomly(float deltaTime, float now)
+    {
+        if (deltaTime <= 0f)
+            return;
+
+        if (wanderDirection == Vector3.zero || now >= nextWanderDirectionTime)
+        {
+            float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            wanderDirection = new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
+            nextWanderDirectionTime = now + UnityEngine.Random.Range(
+                wanderDirectionChangeMin, wanderDirectionChangeMax);
+        }
+
+        Vector3 direction = wanderDirection;
+        if (endlessWorld != null)
+            direction += endlessWorld.GetCivilianWallAvoidance(transform.position);
+        direction.y = 0f;
+        if (direction.sqrMagnitude > 0.001f)
+            direction.Normalize();
         if (direction == Vector3.zero)
             return;
 
@@ -240,7 +337,9 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
             characterController = GetComponent<CharacterController>();
 
         transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
-        characterController.Move(direction * movementSpeed * deltaTime);
+        float speedMultiplier = endlessWorld == null
+            ? 1f : endlessWorld.StageEnemySpeedMultiplier;
+        characterController.Move(direction * movementSpeed * speedMultiplier * deltaTime);
     }
 
     private void FacePlayer()
@@ -322,8 +421,16 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
             Vector3.one * projectileSizeMultiplier);
         IgnoreShooterCollisions(projectile);
         SetProjectileColor(projectile, Color.white);
-        projectile.Initialize(h980220_ProjectileKind.Cure, direction, projectileSpeed, 12f);
-        nextFireTime = now + Mathf.Max(0f, fireInterval);
+        float projectileMultiplier = endlessWorld == null
+            ? 1f : endlessWorld.MedicProjectileSpeedMultiplier;
+        float fireRateMultiplier = endlessWorld == null
+            ? 1f : endlessWorld.MedicFireRateMultiplier;
+        projectile.Initialize(h980220_ProjectileKind.Cure, direction,
+            projectileSpeed * projectileMultiplier *
+            (endlessWorld == null ? 1f : endlessWorld.StageEnemySpeedMultiplier),
+            projectileRange);
+        nextFireTime = now + Mathf.Max(0f, fireInterval) /
+                       Mathf.Max(1f, fireRateMultiplier);
     }
 
     private void IgnoreShooterCollisions(h980220_Projectile projectile)
@@ -435,6 +542,7 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         cylinderRightShin = CreateCylinder("RightShin", modelRoot,
             new Vector3(0.4f, 0.435f, 0f), new Vector3(0.315f, 0.81f, 0.315f), sourceMaterial);
 
+        EnsureRoleVisuals();
         bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
         cylinderTorsoBasePosition = cylinderTorso.localPosition;
         cylinderTorsoBaseRotation = cylinderTorso.localRotation;
@@ -455,6 +563,7 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         cylinderRightThigh = modelRoot.Find("RightThigh");
         cylinderLeftShin = modelRoot.Find("LeftShin");
         cylinderRightShin = modelRoot.Find("RightShin");
+        EnsureRoleVisuals();
         bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
         if (cylinderTorso != null)
         {
@@ -513,10 +622,51 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         return cylinder.transform;
     }
 
+    private void EnsureRoleVisuals()
+    {
+        if (cylinderTorso == null)
+            return;
+
+        CreateTorsoMarker("MedicCrossVertical", new Vector3(0f, 0f, 0.53f),
+            new Vector3(0.16f, 0.72f, 0.06f));
+        CreateTorsoMarker("MedicCrossHorizontal", new Vector3(0f, 0f, 0.54f),
+            new Vector3(0.48f, 0.2f, 0.06f));
+        CreateTorsoMarker("PoliceRedHalf", new Vector3(-0.255f, 0f, 0.53f),
+            new Vector3(0.5f, 1.7f, 0.06f));
+        CreateTorsoMarker("PoliceBlueHalf", new Vector3(0.255f, 0f, 0.54f),
+            new Vector3(0.5f, 1.7f, 0.06f));
+
+        Transform modelRoot = cylinderTorso.parent;
+        if (modelRoot != null)
+            bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
+    }
+
+    private void CreateTorsoMarker(string markerName, Vector3 localPosition, Vector3 localScale)
+    {
+        if (cylinderTorso.Find(markerName) != null)
+            return;
+
+        GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        marker.name = markerName;
+        marker.transform.SetParent(cylinderTorso, false);
+        marker.transform.localPosition = localPosition;
+        marker.transform.localRotation = Quaternion.identity;
+        marker.transform.localScale = localScale;
+
+        Collider markerCollider = marker.GetComponent<Collider>();
+        if (markerCollider != null)
+        {
+            markerCollider.enabled = false;
+            if (Application.isPlaying)
+                Destroy(markerCollider);
+            else
+                DestroyImmediate(markerCollider);
+        }
+    }
+
     private void RefreshColor()
     {
         float progress = requiredHits <= 0 ? 0f : Mathf.Clamp01((float)receivedHits / requiredHits);
-        Color color = Color.Lerp(healthyColor, infectedColor, progress);
         var properties = new MaterialPropertyBlock();
 
         foreach (Renderer bodyRenderer in bodyRenderers)
@@ -524,11 +674,39 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
             if (bodyRenderer == null)
                 continue;
 
+            bool medicMarker = bodyRenderer.name.StartsWith("MedicCross", StringComparison.Ordinal);
+            bool policeMarker = bodyRenderer.name.StartsWith("Police", StringComparison.Ordinal);
+            bodyRenderer.enabled =
+                (enemyType == h980220_EnemyType.Ranged && medicMarker) ||
+                (enemyType == h980220_EnemyType.Elite && policeMarker) ||
+                (!medicMarker && !policeMarker);
+            if (!bodyRenderer.enabled)
+                continue;
+
+            Color healthyBodyColor = GetHealthyBodyColor(bodyRenderer.name);
+            Color color = Color.Lerp(healthyBodyColor, infectedColor, progress);
             bodyRenderer.GetPropertyBlock(properties);
             properties.SetColor(BaseColorId, color);
             properties.SetColor(ColorId, color);
             bodyRenderer.SetPropertyBlock(properties);
             properties.Clear();
+        }
+    }
+
+    private Color GetHealthyBodyColor(string rendererName)
+    {
+        switch (enemyType)
+        {
+            case h980220_EnemyType.Ranged:
+                return rendererName.StartsWith("MedicCross", StringComparison.Ordinal)
+                    ? MedicCrossColor
+                    : MedicBodyColor;
+            case h980220_EnemyType.Elite:
+                if (rendererName == "PoliceRedHalf" || rendererName.StartsWith("Left", StringComparison.Ordinal))
+                    return PoliceRedColor;
+                return PoliceBlueColor;
+            default:
+                return healthyColor;
         }
     }
 
@@ -553,7 +731,11 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         contactRange = Mathf.Max(0f, contactRange);
         fireInterval = Mathf.Max(0f, fireInterval);
         projectileSpeed = Mathf.Max(0f, projectileSpeed);
+        projectileRange = Mathf.Max(0.5f, projectileRange);
         projectileSizeMultiplier = Mathf.Max(0.05f, projectileSizeMultiplier);
+        wanderDirectionChangeMin = Mathf.Max(0.1f, wanderDirectionChangeMin);
+        wanderDirectionChangeMax = Mathf.Max(
+            wanderDirectionChangeMin, wanderDirectionChangeMax);
         danceHeight = Mathf.Max(0f, danceHeight);
         danceLeanDegrees = Mathf.Max(0f, danceLeanDegrees);
     }

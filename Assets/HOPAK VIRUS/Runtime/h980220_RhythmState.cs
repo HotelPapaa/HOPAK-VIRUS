@@ -11,9 +11,9 @@ public sealed class h980220_RhythmState
     public int SuccessStreak { get; private set; }
     public float StepElapsed { get; private set; }
     public bool IsMoving { get; private set; }
-    public float CurrentSpeed => baseSpeed + speedPerSuccess * SuccessStreak;
+    public float CurrentSpeed => baseSpeed + accumulatedSpeedBonus;
     public float CurrentStepDuration =>
-        stepDuration / (1f + SuccessStreak * cadenceAccelerationPerSuccess);
+        stepDuration / (1f + CadenceProgress * cadenceAccelerationPerSuccess);
     public float CurrentSuccessWindow => CurrentStepDuration * successWindowRatio;
 
     private readonly float stepDuration;
@@ -24,8 +24,14 @@ public sealed class h980220_RhythmState
     private h980220_Leg recoverableLeg;
     private int recoverableStreak;
     private bool recoverableMoving;
+    private float recoverableSpeedBonus;
     private float recoveryRemaining;
     private float dashGraceRemaining;
+    private float accumulatedSpeedBonus;
+
+    private float CadenceProgress => speedPerSuccess > 0.0001f
+        ? accumulatedSpeedBonus / speedPerSuccess
+        : SuccessStreak;
 
     public h980220_RhythmState(float stepDuration, float successWindow,
         float baseSpeed, float referenceSpeed, int successesToReferenceSpeed,
@@ -86,6 +92,7 @@ public sealed class h980220_RhythmState
             ActiveLeg = recoverableLeg;
             SuccessStreak = recoverableStreak;
             IsMoving = recoverableMoving;
+            accumulatedSpeedBonus = recoverableSpeedBonus;
         }
 
         float dashDuration = CurrentStepDuration;
@@ -114,12 +121,27 @@ public sealed class h980220_RhythmState
     public float NormalizedStep => ActiveLeg == h980220_Leg.None
         ? 0f : Mathf.Clamp01(StepElapsed / CurrentStepDuration);
 
+    public void ResumeFromSlidingSpeed(float slidingSpeed)
+    {
+        if (ActiveLeg != h980220_Leg.None || slidingSpeed <= CurrentSpeed)
+            return;
+
+        accumulatedSpeedBonus = Mathf.Max(0f, slidingSpeed - baseSpeed);
+        if (speedPerSuccess > 0.0001f)
+        {
+            SuccessStreak = Mathf.Max(
+                SuccessStreak,
+                Mathf.FloorToInt(accumulatedSpeedBonus / speedPerSuccess));
+        }
+    }
+
     public void Reset()
     {
         ResetCore();
         recoverableLeg = h980220_Leg.None;
         recoverableStreak = 0;
         recoverableMoving = false;
+        recoverableSpeedBonus = 0f;
         recoveryRemaining = 0f;
         dashGraceRemaining = 0f;
     }
@@ -129,6 +151,7 @@ public sealed class h980220_RhythmState
         ActiveLeg = leg;
         StepElapsed = 0f;
         SuccessStreak++;
+        accumulatedSpeedBonus += speedPerSuccess;
         IsMoving = true;
     }
 
@@ -139,6 +162,7 @@ public sealed class h980220_RhythmState
             recoverableLeg = ActiveLeg;
             recoverableStreak = SuccessStreak;
             recoverableMoving = IsMoving;
+            recoverableSpeedBonus = accumulatedSpeedBonus;
             recoveryRemaining = 0.5f;
         }
 
@@ -149,6 +173,7 @@ public sealed class h980220_RhythmState
     {
         ActiveLeg = h980220_Leg.None;
         SuccessStreak = 0;
+        accumulatedSpeedBonus = 0f;
         StepElapsed = 0f;
         IsMoving = false;
     }

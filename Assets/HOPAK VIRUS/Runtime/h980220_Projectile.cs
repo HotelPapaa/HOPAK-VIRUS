@@ -44,7 +44,16 @@ public sealed class h980220_Projectile : MonoBehaviour
         IsExpired = false;
 
         if (MaximumRange <= 0f || Direction == Vector3.zero || Speed <= 0f)
+        {
             Expire();
+            return;
+        }
+
+        // Range remains the primary rule, but this guarantees that a disabled or
+        // stalled projectile can never remain in the scene forever.
+        float forcedLifetime = Mathf.Clamp(MaximumRange / Speed + 0.75f, 1f, 8f);
+        if (Application.isPlaying)
+            Destroy(gameObject, forcedLifetime);
     }
 
     private void Update()

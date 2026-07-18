@@ -49,14 +49,20 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     private Quaternion rightShinBaseRotation;
     private float momentumSpeed;
     private Vector3 momentumDirection;
+    private h980220_PlayerCombat playerCombat;
 
-    public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
+    public float CurrentSpeed => rhythm == null
+        ? Mathf.Max(baseMoveSpeed, momentumSpeed)
+        : Mathf.Max(rhythm.CurrentSpeed, momentumSpeed);
     public float CurrentStepDuration => rhythm == null ? stepDuration : rhythm.CurrentStepDuration;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
+    public int MaximumSuccessStreak { get; private set; }
+    public h980220_LegPose CurrentPose { get; private set; }
 
     internal void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        playerCombat = GetComponent<h980220_PlayerCombat>();
         rhythm = new h980220_RhythmState(
             stepDuration, successWindow, baseMoveSpeed, maxMoveSpeed,
             successesToMaxSpeed, cadenceAccelerationPerSuccess);
@@ -84,12 +90,21 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         if (!inputEnabled)
             return;
 
+        if (playerCombat == null)
+            playerCombat = GetComponent<h980220_PlayerCombat>();
+        if (playerCombat != null && playerCombat.IsJumping)
+        {
+            ApplyPose(h980220_HopakPose.Evaluate(h980220_Leg.None, 0f));
+            return;
+        }
+
         rhythm.Tick(deltaTime);
 
         if (leftDown)
             HandleLeg(h980220_Leg.Left);
         if (rightDown)
             HandleLeg(h980220_Leg.Right);
+        MaximumSuccessStreak = Mathf.Max(MaximumSuccessStreak, rhythm.SuccessStreak);
 
         transform.Rotate(0f, turnAxis * turnSpeed * deltaTime, 0f);
 
@@ -104,7 +119,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
                 momentumSpeed, 0f, slideDeceleration * Mathf.Max(0f, deltaTime));
         }
 
-        if (momentumSpeed > 0f)
+        if (momentumSpeed > 0f && (playerCombat == null || !playerCombat.IsJumping))
             characterController.Move(momentumDirection * momentumSpeed * deltaTime);
 
         ApplyPose(h980220_HopakPose.Evaluate(rhythm.ActiveLeg, rhythm.NormalizedStep));
@@ -121,20 +136,30 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         }
     }
 
+    public void SetLevelUpPaused(bool paused)
+    {
+        inputEnabled = !paused;
+    }
+
     public float RegisterDashBeat(float graceSeconds)
     {
         if (rhythm == null)
             Awake();
-        return rhythm.RegisterDash(graceSeconds);
+        float duration = rhythm.RegisterDash(graceSeconds);
+        MaximumSuccessStreak = Mathf.Max(MaximumSuccessStreak, rhythm.SuccessStreak);
+        return duration;
     }
 
     private void HandleLeg(h980220_Leg leg)
     {
+        if (rhythm.ActiveLeg == h980220_Leg.None)
+            rhythm.ResumeFromSlidingSpeed(momentumSpeed);
         rhythm.RegisterInput(leg);
     }
 
     private void ApplyPose(h980220_LegPose pose)
     {
+        CurrentPose = pose;
         EnsureLegBaselines();
         ApplySegment(leftThigh, leftThighBasePosition, leftThighBaseRotation,
             h980220_HopakPose.LeftThighTarget(pose.ActiveLeg),

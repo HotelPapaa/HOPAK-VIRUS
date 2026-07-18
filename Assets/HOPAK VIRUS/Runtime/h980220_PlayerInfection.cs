@@ -20,14 +20,17 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
     private CharacterController characterController;
     private float invulnerableUntil = float.NegativeInfinity;
     private bool cureEnabled = true;
+    private h980220_PlayerCombat playerCombat;
 
     public event Action Cured;
 
     public int RemainingInfection { get; private set; }
+    public int MaximumInfection => maxInfection;
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        playerCombat = GetComponent<h980220_PlayerCombat>();
         ResetInfection();
     }
 
@@ -38,10 +41,16 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
 
     public bool ReceiveCureAtTime(Vector3 sourcePosition, float now)
     {
-        if (!cureEnabled || RemainingInfection <= 0 || now < invulnerableUntil)
+        if (playerCombat == null)
+            playerCombat = GetComponent<h980220_PlayerCombat>();
+        if (!cureEnabled || RemainingInfection <= 0 || now < invulnerableUntil ||
+            (playerCombat != null && playerCombat.IsDashing))
             return false;
 
         invulnerableUntil = now + invulnerabilitySeconds;
+        if (TrySacrificeJunior())
+            return true;
+
         RemainingInfection--;
 
         if (characterController == null)
@@ -61,8 +70,17 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
 
     public void ReceiveFatalContact()
     {
-        if (!cureEnabled || RemainingInfection <= 0)
+        if (playerCombat == null)
+            playerCombat = GetComponent<h980220_PlayerCombat>();
+        if (!cureEnabled || RemainingInfection <= 0 ||
+            (playerCombat != null && playerCombat.IsDashing))
             return;
+
+        if (TrySacrificeJunior())
+        {
+            invulnerableUntil = Time.time + invulnerabilitySeconds;
+            return;
+        }
 
         RemainingInfection = 0;
         RefreshVisuals();
@@ -79,6 +97,60 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
     public void SetCureEnabled(bool enabled)
     {
         cureEnabled = enabled;
+    }
+
+    public void HealOne()
+    {
+        RemainingInfection = Mathf.Min(maxInfection, RemainingInfection + 1);
+        RefreshVisuals();
+    }
+
+    public void IncreaseMaximumInfection()
+    {
+        maxInfection++;
+        AddHudIndicator();
+        RefreshVisuals();
+    }
+
+    private bool TrySacrificeJunior()
+    {
+        h980220_HopakJunior[] juniors =
+            GetComponentsInChildren<h980220_HopakJunior>(true);
+        for (int i = juniors.Length - 1; i >= 0; i--)
+        {
+            h980220_HopakJunior junior = juniors[i];
+            if (junior == null || !junior.gameObject.activeInHierarchy)
+                continue;
+            junior.gameObject.SetActive(false);
+            Destroy(junior.gameObject);
+            return true;
+        }
+        return false;
+    }
+
+    private void AddHudIndicator()
+    {
+        if (hudIndicators == null || hudIndicators.Length == 0 ||
+            hudIndicators[hudIndicators.Length - 1] == null)
+            return;
+
+        Image source = hudIndicators[hudIndicators.Length - 1];
+        Image added = Instantiate(source, source.transform.parent);
+        added.name = $"Infection {maxInfection}";
+        RectTransform addedRect = added.rectTransform;
+        if (hudIndicators.Length >= 2 && hudIndicators[hudIndicators.Length - 2] != null)
+        {
+            Vector2 spacing = source.rectTransform.anchoredPosition -
+                              hudIndicators[hudIndicators.Length - 2].rectTransform.anchoredPosition;
+            addedRect.anchoredPosition = source.rectTransform.anchoredPosition + spacing;
+        }
+        else
+        {
+            addedRect.anchoredPosition += new Vector2(36f, 0f);
+        }
+
+        Array.Resize(ref hudIndicators, hudIndicators.Length + 1);
+        hudIndicators[hudIndicators.Length - 1] = added;
     }
 
     private void RefreshVisuals()
