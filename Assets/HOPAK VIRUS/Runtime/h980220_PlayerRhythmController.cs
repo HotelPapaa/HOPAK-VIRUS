@@ -3,6 +3,8 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public sealed class h980220_PlayerRhythmController : MonoBehaviour
 {
+    private const float MaxTorsoSquashFraction = 0.35f;
+
     [Header("Movement")]
     [SerializeField] private float baseMoveSpeed = 2f;
     [SerializeField] private float maxMoveSpeed = 6f;
@@ -21,6 +23,8 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
 
     [Header("Torso Motion")]
     [SerializeField] private Transform torso;
+    [Range(0f, 1f)]
+    [Tooltip("Torso squash intensity. 1 uses the maximum safe squash.")]
     [SerializeField] private float torsoBobHeight = 0.18f;
     [SerializeField] private float torsoLeanDegrees = 12f;
 
@@ -30,6 +34,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     private Transform capturedTorso;
     private Vector3 torsoBasePosition;
     private Quaternion torsoBaseRotation;
+    private Vector3 torsoBaseScale;
 
     public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
@@ -106,7 +111,13 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         EnsureTorsoBaseline();
         if (torso != null)
         {
-            torso.localPosition = torsoBasePosition + Vector3.down * (pose.TorsoDip * torsoBobHeight);
+            float squash = Mathf.Clamp01(pose.TorsoDip * torsoBobHeight);
+            Vector3 torsoScale = torsoBaseScale;
+            torsoScale.y = torsoBaseScale.y * (1f - squash * MaxTorsoSquashFraction);
+            float lostHeight = torsoBaseScale.y - torsoScale.y;
+
+            torso.localScale = torsoScale;
+            torso.localPosition = torsoBasePosition + Vector3.down * (lostHeight * 0.5f);
             torso.localRotation = torsoBaseRotation *
                 Quaternion.Euler(0f, 0f, pose.TorsoLean * torsoLeanDegrees);
         }
@@ -132,6 +143,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         capturedTorso = torso;
         torsoBasePosition = torso.localPosition;
         torsoBaseRotation = torso.localRotation;
+        torsoBaseScale = torso.localScale;
     }
 
     private void OnValidate()
@@ -141,7 +153,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         successWindow = Mathf.Clamp(successWindow, 0.01f, stepDuration);
         maxMoveSpeed = Mathf.Max(baseMoveSpeed, maxMoveSpeed);
         successesToMaxSpeed = Mathf.Max(1, successesToMaxSpeed);
-        torsoBobHeight = Mathf.Max(0f, torsoBobHeight);
+        torsoBobHeight = Mathf.Clamp01(torsoBobHeight);
         torsoLeanDegrees = Mathf.Max(0f, torsoLeanDegrees);
     }
 }
