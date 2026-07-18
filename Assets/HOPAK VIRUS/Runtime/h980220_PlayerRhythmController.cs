@@ -19,9 +19,17 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     [SerializeField] private Transform rightThigh;
     [SerializeField] private Transform rightShin;
 
+    [Header("Torso Motion")]
+    [SerializeField] private Transform torso;
+    [SerializeField] private float torsoBobHeight = 0.18f;
+    [SerializeField] private float torsoLeanDegrees = 12f;
+
     private CharacterController characterController;
     private h980220_RhythmState rhythm;
     private bool inputEnabled = true;
+    private Transform capturedTorso;
+    private Vector3 torsoBasePosition;
+    private Quaternion torsoBaseRotation;
 
     public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
@@ -31,6 +39,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         characterController = GetComponent<CharacterController>();
         rhythm = new h980220_RhythmState(
             stepDuration, successWindow, baseMoveSpeed, maxMoveSpeed, successesToMaxSpeed);
+        EnsureTorsoBaseline();
     }
 
     private void Update()
@@ -93,6 +102,36 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
             rightThigh.localRotation = Quaternion.Euler(pose.RightThighX, 0f, 0f);
         if (rightShin != null)
             rightShin.localRotation = Quaternion.Euler(pose.RightShinX, 0f, 0f);
+
+        EnsureTorsoBaseline();
+        if (torso != null)
+        {
+            torso.localPosition = torsoBasePosition + Vector3.down * (pose.TorsoDip * torsoBobHeight);
+            torso.localRotation = torsoBaseRotation *
+                Quaternion.Euler(0f, 0f, pose.TorsoLean * torsoLeanDegrees);
+        }
+    }
+
+    private void EnsureTorsoBaseline()
+    {
+        if (torso == null)
+        {
+            foreach (Transform child in GetComponentsInChildren<Transform>(true))
+            {
+                if (child != transform && child.name == "Torso")
+                {
+                    torso = child;
+                    break;
+                }
+            }
+        }
+
+        if (torso == null || capturedTorso == torso)
+            return;
+
+        capturedTorso = torso;
+        torsoBasePosition = torso.localPosition;
+        torsoBaseRotation = torso.localRotation;
     }
 
     private void OnValidate()
@@ -102,5 +141,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         successWindow = Mathf.Clamp(successWindow, 0.01f, stepDuration);
         maxMoveSpeed = Mathf.Max(baseMoveSpeed, maxMoveSpeed);
         successesToMaxSpeed = Mathf.Max(1, successesToMaxSpeed);
+        torsoBobHeight = Mathf.Max(0f, torsoBobHeight);
+        torsoLeanDegrees = Mathf.Max(0f, torsoLeanDegrees);
     }
 }

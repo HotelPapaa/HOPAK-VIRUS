@@ -11,7 +11,12 @@ public static class h980220_BuildAutomation
 
     public static void BuildWindows()
     {
-        h980220_GameSceneBuilder.BuildScene();
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(h980220_GameSceneBuilder.ScenePath) == null)
+        {
+            throw new InvalidOperationException(
+                $"Saved game scene is missing: {h980220_GameSceneBuilder.ScenePath}");
+        }
+
         PlayerSettings.SetManagedStrippingLevel(
             BuildTargetGroup.Standalone, ManagedStrippingLevel.High);
 

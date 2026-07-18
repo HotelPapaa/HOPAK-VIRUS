@@ -72,4 +72,25 @@ public sealed class h980220_ProjectComplianceTests
         Assert.That(combinedProductionSource, Does.Not.Contain("TrailRenderer"));
         Assert.That(combinedProductionSource, Does.Not.Contain("LineRenderer"));
     }
+
+    [Test]
+    public void FutureBuilderIsHeadlessAndWindowsBuildPreservesSavedScene()
+    {
+        string builderPath = Path.Combine(
+            Application.dataPath, "HOPAK VIRUS", "Editor", "h980220_GameSceneBuilder.cs");
+        string automationPath = Path.Combine(
+            Application.dataPath, "HOPAK VIRUS", "Editor", "h980220_BuildAutomation.cs");
+        string builderSource = File.ReadAllText(builderPath);
+        string automationSource = File.ReadAllText(automationPath);
+
+        Assert.That(builderSource, Does.Not.Contain("VisualCube(\"Head\""));
+        Assert.That(builderSource, Does.Contain("exactly five collider-free Cube visuals"));
+
+        int buildWindowsStart = automationSource.IndexOf(
+            "public static void BuildWindows()", System.StringComparison.Ordinal);
+        Assert.That(buildWindowsStart, Is.GreaterThanOrEqualTo(0));
+        string buildWindowsSource = automationSource.Substring(buildWindowsStart);
+        Assert.That(buildWindowsSource,
+            Does.Not.Contain("h980220_GameSceneBuilder.BuildScene();"));
+    }
 }

@@ -13,6 +13,8 @@ public sealed class h980220_HopakPoseTests
         Assert.That(pose.LeftShinX, Is.GreaterThan(60f));
         Assert.That(pose.RightThighX, Is.EqualTo(0f).Within(0.01f));
         Assert.That(pose.RightShinX, Is.EqualTo(0f).Within(0.01f));
+        Assert.That(pose.TorsoDip, Is.EqualTo(1f).Within(0.01f));
+        Assert.That(pose.TorsoLean, Is.EqualTo(1f).Within(0.01f));
     }
 
     [Test]
@@ -24,6 +26,8 @@ public sealed class h980220_HopakPoseTests
         Assert.That(pose.LeftShinX, Is.Zero);
         Assert.That(pose.RightThighX, Is.Zero);
         Assert.That(pose.RightShinX, Is.Zero);
+        Assert.That(pose.TorsoDip, Is.Zero);
+        Assert.That(pose.TorsoLean, Is.Zero);
     }
 
     [Test]
@@ -35,6 +39,8 @@ public sealed class h980220_HopakPoseTests
         Assert.That(pose.LeftShinX, Is.EqualTo(0f).Within(0.01f));
         Assert.That(pose.RightThighX, Is.LessThan(-50f));
         Assert.That(pose.RightShinX, Is.GreaterThan(60f));
+        Assert.That(pose.TorsoDip, Is.EqualTo(1f).Within(0.01f));
+        Assert.That(pose.TorsoLean, Is.EqualTo(-1f).Within(0.01f));
     }
 }
 
@@ -46,6 +52,9 @@ public sealed class h980220_PlayerRhythmControllerTests
     private Transform leftShin;
     private Transform rightThigh;
     private Transform rightShin;
+    private Transform torso;
+    private Vector3 torsoBasePosition;
+    private Quaternion torsoBaseRotation;
 
     [SetUp]
     public void SetUp()
@@ -57,6 +66,11 @@ public sealed class h980220_PlayerRhythmControllerTests
         leftShin = CreateLegSegment("left shin");
         rightThigh = CreateLegSegment("right thigh");
         rightShin = CreateLegSegment("right shin");
+        torso = CreateLegSegment("Torso");
+        torsoBasePosition = new Vector3(0.2f, 2.3f, -0.1f);
+        torsoBaseRotation = Quaternion.Euler(3f, 4f, 5f);
+        torso.localPosition = torsoBasePosition;
+        torso.localRotation = torsoBaseRotation;
 
         SerializedObject serializedController = new SerializedObject(controller);
         serializedController.FindProperty("leftThigh").objectReferenceValue = leftThigh;
@@ -119,6 +133,32 @@ public sealed class h980220_PlayerRhythmControllerTests
     }
 
     [Test]
+    public void LeftStepDipsAutoFoundTorsoAndLeansTowardLiftedLeg()
+    {
+        controller.ProcessFrame(0f, true, false, 0f);
+        controller.ProcessFrame(0.25f, false, false, 0f);
+
+        Assert.That(torso.localPosition.x, Is.EqualTo(torsoBasePosition.x).Within(0.001f));
+        Assert.That(torso.localPosition.y, Is.EqualTo(torsoBasePosition.y - 0.18f).Within(0.001f));
+        Assert.That(torso.localPosition.z, Is.EqualTo(torsoBasePosition.z).Within(0.001f));
+        Quaternion relativeRotation = Quaternion.Inverse(torsoBaseRotation) * torso.localRotation;
+        Assert.That(Mathf.DeltaAngle(0f, relativeRotation.eulerAngles.z),
+            Is.EqualTo(12f).Within(0.01f));
+    }
+
+    [Test]
+    public void RightStepUsesSameDipAndOppositeTorsoLean()
+    {
+        controller.ProcessFrame(0f, false, true, 0f);
+        controller.ProcessFrame(0.25f, false, false, 0f);
+
+        Assert.That(torso.localPosition.y, Is.EqualTo(torsoBasePosition.y - 0.18f).Within(0.001f));
+        Quaternion relativeRotation = Quaternion.Inverse(torsoBaseRotation) * torso.localRotation;
+        Assert.That(Mathf.DeltaAngle(0f, relativeRotation.eulerAngles.z),
+            Is.EqualTo(-12f).Within(0.01f));
+    }
+
+    [Test]
     public void DisablingInputResetsAndPreventsFurtherProcessing()
     {
         controller.ProcessFrame(0f, true, false, 0f);
@@ -138,6 +178,8 @@ public sealed class h980220_PlayerRhythmControllerTests
         Assert.That(Mathf.DeltaAngle(0f, leftShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
         Assert.That(Mathf.DeltaAngle(0f, rightThigh.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
         Assert.That(Mathf.DeltaAngle(0f, rightShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
+        Assert.That(torso.localPosition, Is.EqualTo(torsoBasePosition));
+        Assert.That(torso.localRotation, Is.EqualTo(torsoBaseRotation));
     }
 
     [Test]
@@ -149,6 +191,8 @@ public sealed class h980220_PlayerRhythmControllerTests
         serializedController.FindProperty("successesToMaxSpeed").intValue = 0;
         serializedController.FindProperty("stepDuration").floatValue = 0.01f;
         serializedController.FindProperty("successWindow").floatValue = 1f;
+        serializedController.FindProperty("torsoBobHeight").floatValue = -1f;
+        serializedController.FindProperty("torsoLeanDegrees").floatValue = -1f;
         serializedController.ApplyModifiedPropertiesWithoutUndo();
 
         serializedController.Update();
@@ -160,6 +204,8 @@ public sealed class h980220_PlayerRhythmControllerTests
         Assert.That(serializedController.FindProperty("maxMoveSpeed").floatValue,
             Is.EqualTo(4f).Within(0.001f));
         Assert.That(serializedController.FindProperty("successesToMaxSpeed").intValue, Is.EqualTo(1));
+        Assert.That(serializedController.FindProperty("torsoBobHeight").floatValue, Is.Zero);
+        Assert.That(serializedController.FindProperty("torsoLeanDegrees").floatValue, Is.Zero);
     }
 
     private Transform CreateLegSegment(string name)

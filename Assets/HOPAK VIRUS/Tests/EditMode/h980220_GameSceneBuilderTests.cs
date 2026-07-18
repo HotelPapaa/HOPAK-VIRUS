@@ -39,16 +39,17 @@ public sealed class h980220_GameSceneBuilderTests
     }
 
     [Test]
-    public void PlayerIsExactlySixColliderFreeCubeVisualsWithRootController()
+    public void PlayerIsExactlyFiveColliderFreeCubeVisualsWithRootControllerAndNoHead()
     {
         GameObject player = Find("Player");
         MeshRenderer[] visuals = player.GetComponentsInChildren<MeshRenderer>(true);
 
         Assert.That(visuals.Select(renderer => renderer.gameObject.name), Is.EquivalentTo(new[]
         {
-            "Head", "Torso", "LeftThigh", "LeftShin", "RightThigh", "RightShin"
+            "Torso", "LeftThigh", "LeftShin", "RightThigh", "RightShin"
         }));
-        Assert.That(visuals, Has.Length.EqualTo(6));
+        Assert.That(visuals, Has.Length.EqualTo(5));
+        Assert.That(player.transform.Find("Head"), Is.Null);
         Assert.That(visuals.All(renderer =>
             renderer.GetComponent<MeshFilter>()?.sharedMesh?.name == "Cube"), Is.True);
         Assert.That(visuals.All(renderer => renderer.GetComponent<Collider>() == null), Is.True);

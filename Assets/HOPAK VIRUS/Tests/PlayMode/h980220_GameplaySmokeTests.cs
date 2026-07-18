@@ -259,7 +259,12 @@ public sealed class h980220_GameplaySmokeTests
     {
         GameObject player = FindObject("Player");
         MeshRenderer[] visuals = player.GetComponentsInChildren<MeshRenderer>(true);
-        Assert.That(visuals, Has.Length.EqualTo(6));
+        Assert.That(visuals, Has.Length.EqualTo(5));
+        Assert.That(visuals.Select(renderer => renderer.gameObject.name), Is.EquivalentTo(new[]
+        {
+            "Torso", "LeftThigh", "LeftShin", "RightThigh", "RightShin"
+        }));
+        Assert.That(player.transform.Find("Head"), Is.Null);
         Assert.That(visuals.All(renderer =>
             renderer.GetComponent<MeshFilter>()?.sharedMesh?.name == "Cube"), Is.True);
         Assert.That(visuals.All(renderer => renderer.GetComponent<Collider>() == null), Is.True);

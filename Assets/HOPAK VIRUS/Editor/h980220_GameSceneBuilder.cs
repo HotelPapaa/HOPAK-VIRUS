@@ -165,8 +165,6 @@ public static class h980220_GameSceneBuilder
         controller.height = 3.5f;
         controller.radius = 0.6f;
 
-        GameObject head = VisualCube("Head", player.transform,
-            new Vector3(0f, 3.2f, 0f), new Vector3(0.9f, 0.9f, 0.9f), skin);
         GameObject torso = VisualCube("Torso", player.transform,
             new Vector3(0f, 2.1f, 0f), new Vector3(1.2f, 1.4f, 0.8f), skin);
         GameObject leftThigh = VisualCube("LeftThigh", player.transform,
@@ -185,6 +183,7 @@ public static class h980220_GameSceneBuilder
         SetReference(rhythm, "leftShin", leftShin.transform);
         SetReference(rhythm, "rightThigh", rightThigh.transform);
         SetReference(rhythm, "rightShin", rightShin.transform);
+        SetReference(rhythm, "torso", torso.transform);
 
         var firePoint = new GameObject("FirePoint");
         firePoint.transform.SetParent(player.transform, false);
@@ -194,8 +193,8 @@ public static class h980220_GameSceneBuilder
 
         renderers = new[]
         {
-            head.GetComponent<Renderer>(), torso.GetComponent<Renderer>(),
-            leftThigh.GetComponent<Renderer>(), leftShin.GetComponent<Renderer>(),
+            torso.GetComponent<Renderer>(), leftThigh.GetComponent<Renderer>(),
+            leftShin.GetComponent<Renderer>(),
             rightThigh.GetComponent<Renderer>(), rightShin.GetComponent<Renderer>()
         };
         return player;
@@ -574,12 +573,12 @@ public static class h980220_GameSceneBuilder
             throw new InvalidOperationException("Generated scene has no Player root.");
 
         MeshRenderer[] playerVisuals = player.GetComponentsInChildren<MeshRenderer>(true);
-        if (playerVisuals.Length != 6 ||
+        if (playerVisuals.Length != 5 ||
             playerVisuals.Any(renderer => renderer.GetComponent<Collider>() != null) ||
             playerVisuals.Any(renderer => renderer.GetComponent<MeshFilter>()?.sharedMesh?.name != "Cube"))
         {
             throw new InvalidOperationException(
-                "Player must contain exactly six collider-free Cube visuals.");
+                "Player must contain exactly five collider-free Cube visuals.");
         }
 
         h980220_RoomController[] rooms = UnityEngine.Object.FindObjectsByType<h980220_RoomController>(
