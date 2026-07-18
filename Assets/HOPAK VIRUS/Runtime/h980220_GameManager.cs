@@ -40,6 +40,7 @@ public sealed class h980220_GameManager : MonoBehaviour
 
     internal void Awake()
     {
+        h980220_FloorSpeedVisualizer.Build();
         State = h980220_GameState.Title;
         currentRoomIndex = -1;
         completedRooms.Clear();
@@ -61,6 +62,24 @@ public sealed class h980220_GameManager : MonoBehaviour
         SetActive(titlePanel, true);
         SetActive(hudPanel, false);
         SetActive(resultPanel, false);
+        RefreshControlGuide();
+    }
+
+    private void RefreshControlGuide()
+    {
+        if (titlePanel == null)
+            return;
+
+        foreach (Text label in titlePanel.GetComponentsInChildren<Text>(true))
+        {
+            if (label.text != null && label.text.Contains("SPACE:"))
+            {
+                label.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\n" +
+                             "LEFT / RIGHT: TURN\nTOUCH: INFECT\n" +
+                             "SPACE: DASH / DEFEAT POLICE\nENTER: START";
+                break;
+            }
+        }
     }
 
     private void Update()

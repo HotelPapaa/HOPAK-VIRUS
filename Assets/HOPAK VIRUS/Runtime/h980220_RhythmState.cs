@@ -11,23 +11,30 @@ public sealed class h980220_RhythmState
     public int SuccessStreak { get; private set; }
     public float StepElapsed { get; private set; }
     public bool IsMoving { get; private set; }
-    public float CurrentSpeed => Mathf.Lerp(baseSpeed, maxSpeed,
-        Mathf.Clamp01((float)SuccessStreak / successesToMaxSpeed));
+    public float CurrentSpeed => baseSpeed + speedPerSuccess * SuccessStreak;
+    public float CurrentStepDuration =>
+        stepDuration / (1f + SuccessStreak * cadenceAccelerationPerSuccess);
+    public float CurrentSuccessWindow => CurrentStepDuration * successWindowRatio;
 
     private readonly float stepDuration;
-    private readonly float successWindow;
+    private readonly float successWindowRatio;
     private readonly float baseSpeed;
-    private readonly float maxSpeed;
-    private readonly int successesToMaxSpeed;
+    private readonly float speedPerSuccess;
+    private readonly float cadenceAccelerationPerSuccess;
 
     public h980220_RhythmState(float stepDuration, float successWindow,
-        float baseSpeed, float maxSpeed, int successesToMaxSpeed)
+        float baseSpeed, float referenceSpeed, int successesToReferenceSpeed,
+        float cadenceAccelerationPerSuccess = 0.15f)
     {
         this.stepDuration = Mathf.Max(0.05f, stepDuration);
-        this.successWindow = Mathf.Clamp(successWindow, 0.01f, this.stepDuration);
+        float clampedWindow = Mathf.Clamp(successWindow, 0.01f, this.stepDuration);
+        successWindowRatio = clampedWindow / this.stepDuration;
         this.baseSpeed = Mathf.Max(0f, baseSpeed);
-        this.maxSpeed = Mathf.Max(this.baseSpeed, maxSpeed);
-        this.successesToMaxSpeed = Mathf.Max(1, successesToMaxSpeed);
+        float clampedReferenceSpeed = Mathf.Max(this.baseSpeed, referenceSpeed);
+        int clampedReferenceSuccesses = Mathf.Max(1, successesToReferenceSpeed);
+        speedPerSuccess =
+            (clampedReferenceSpeed - this.baseSpeed) / clampedReferenceSuccesses;
+        this.cadenceAccelerationPerSuccess = Mathf.Max(0f, cadenceAccelerationPerSuccess);
         Reset();
     }
 
@@ -45,7 +52,9 @@ public sealed class h980220_RhythmState
         }
 
         bool opposite = ActiveLeg != leg;
-        bool inWindow = StepElapsed >= stepDuration - successWindow && StepElapsed <= stepDuration;
+        float currentDuration = CurrentStepDuration;
+        bool inWindow = StepElapsed >= currentDuration - CurrentSuccessWindow &&
+                        StepElapsed <= currentDuration;
         if (!opposite || !inWindow)
         {
             Reset();
@@ -64,12 +73,12 @@ public sealed class h980220_RhythmState
         if (ActiveLeg == h980220_Leg.None)
             return;
         StepElapsed += Mathf.Max(0f, deltaTime);
-        if (StepElapsed > stepDuration)
+        if (StepElapsed > CurrentStepDuration)
             Reset();
     }
 
     public float NormalizedStep => ActiveLeg == h980220_Leg.None
-        ? 0f : Mathf.Clamp01(StepElapsed / stepDuration);
+        ? 0f : Mathf.Clamp01(StepElapsed / CurrentStepDuration);
 
     public void Reset()
     {

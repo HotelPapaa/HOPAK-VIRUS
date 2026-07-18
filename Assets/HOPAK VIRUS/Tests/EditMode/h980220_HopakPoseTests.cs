@@ -55,7 +55,6 @@ public sealed class h980220_PlayerRhythmControllerTests
     private Transform torso;
     private Vector3 torsoBasePosition;
     private Quaternion torsoBaseRotation;
-    private Vector3 torsoBaseScale;
 
     [SetUp]
     public void SetUp()
@@ -70,10 +69,8 @@ public sealed class h980220_PlayerRhythmControllerTests
         torso = CreateLegSegment("Torso");
         torsoBasePosition = new Vector3(0.2f, 2.3f, -0.1f);
         torsoBaseRotation = Quaternion.Euler(3f, 4f, 5f);
-        torsoBaseScale = new Vector3(1.2f, 1.4f, 0.8f);
         torso.localPosition = torsoBasePosition;
         torso.localRotation = torsoBaseRotation;
-        torso.localScale = torsoBaseScale;
 
         SerializedObject serializedController = new SerializedObject(controller);
         serializedController.FindProperty("leftThigh").objectReferenceValue = leftThigh;
@@ -142,11 +139,7 @@ public sealed class h980220_PlayerRhythmControllerTests
         controller.ProcessFrame(0.25f, false, false, 0f);
 
         Assert.That(torso.localPosition.x, Is.EqualTo(torsoBasePosition.x).Within(0.001f));
-        float expectedHeight = torsoBaseScale.y * (1f - 0.18f * 0.35f);
-        Assert.That(torso.localScale.y, Is.EqualTo(expectedHeight).Within(0.001f));
-        Assert.That(torso.localPosition.y,
-            Is.EqualTo(torsoBasePosition.y - (torsoBaseScale.y - expectedHeight) * 0.5f)
-                .Within(0.001f));
+        Assert.That(torso.localPosition.y, Is.EqualTo(torsoBasePosition.y - 0.18f).Within(0.001f));
         Assert.That(torso.localPosition.z, Is.EqualTo(torsoBasePosition.z).Within(0.001f));
         Quaternion relativeRotation = Quaternion.Inverse(torsoBaseRotation) * torso.localRotation;
         Assert.That(Mathf.DeltaAngle(0f, relativeRotation.eulerAngles.z),
@@ -159,11 +152,7 @@ public sealed class h980220_PlayerRhythmControllerTests
         controller.ProcessFrame(0f, false, true, 0f);
         controller.ProcessFrame(0.25f, false, false, 0f);
 
-        float expectedHeight = torsoBaseScale.y * (1f - 0.18f * 0.35f);
-        Assert.That(torso.localScale.y, Is.EqualTo(expectedHeight).Within(0.001f));
-        Assert.That(torso.localPosition.y,
-            Is.EqualTo(torsoBasePosition.y - (torsoBaseScale.y - expectedHeight) * 0.5f)
-                .Within(0.001f));
+        Assert.That(torso.localPosition.y, Is.EqualTo(torsoBasePosition.y - 0.18f).Within(0.001f));
         Quaternion relativeRotation = Quaternion.Inverse(torsoBaseRotation) * torso.localRotation;
         Assert.That(Mathf.DeltaAngle(0f, relativeRotation.eulerAngles.z),
             Is.EqualTo(-12f).Within(0.01f));
@@ -191,23 +180,6 @@ public sealed class h980220_PlayerRhythmControllerTests
         Assert.That(Mathf.DeltaAngle(0f, rightShin.localEulerAngles.x), Is.EqualTo(0f).Within(0.01f));
         Assert.That(torso.localPosition, Is.EqualTo(torsoBasePosition));
         Assert.That(torso.localRotation, Is.EqualTo(torsoBaseRotation));
-        Assert.That(torso.localScale, Is.EqualTo(torsoBaseScale));
-    }
-
-    [Test]
-    public void MaximumTorsoBobKeepsBottomAnchoredAndLimitsSquash()
-    {
-        SerializedObject serializedController = new SerializedObject(controller);
-        serializedController.FindProperty("torsoBobHeight").floatValue = 1f;
-        serializedController.ApplyModifiedPropertiesWithoutUndo();
-
-        controller.ProcessFrame(0f, true, false, 0f);
-        controller.ProcessFrame(0.25f, false, false, 0f);
-
-        float baseBottom = torsoBasePosition.y - torsoBaseScale.y * 0.5f;
-        float squashedBottom = torso.localPosition.y - torso.localScale.y * 0.5f;
-        Assert.That(torso.localScale.y, Is.EqualTo(torsoBaseScale.y * 0.65f).Within(0.001f));
-        Assert.That(squashedBottom, Is.EqualTo(baseBottom).Within(0.001f));
     }
 
     [Test]

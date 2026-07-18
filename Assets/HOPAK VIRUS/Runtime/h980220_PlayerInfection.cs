@@ -59,6 +59,16 @@ public sealed class h980220_PlayerInfection : MonoBehaviour
         return true;
     }
 
+    public void ReceiveFatalContact()
+    {
+        if (!cureEnabled || RemainingInfection <= 0)
+            return;
+
+        RemainingInfection = 0;
+        RefreshVisuals();
+        Cured?.Invoke();
+    }
+
     public void ResetInfection()
     {
         RemainingInfection = maxInfection;

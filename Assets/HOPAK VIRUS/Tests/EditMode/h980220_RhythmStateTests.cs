@@ -26,17 +26,38 @@ public sealed class h980220_RhythmStateTests
     }
 
     [Test]
-    public void FourSuccessesReachConfiguredMaximum()
+    public void ReferenceSpeedIsNotACapAndCadenceKeepsAccelerating()
+    {
+        state.RegisterInput(h980220_Leg.Left);
+        h980220_Leg next = h980220_Leg.Right;
+        for (int i = 0; i < 8; i++)
+        {
+            state.Tick(state.CurrentStepDuration * 0.7f);
+            state.RegisterInput(next);
+            next = next == h980220_Leg.Left ? h980220_Leg.Right : h980220_Leg.Left;
+        }
+
+        Assert.That(state.CurrentSpeed, Is.EqualTo(10f).Within(0.001f));
+        Assert.That(state.CurrentStepDuration, Is.LessThan(0.25f));
+    }
+
+    [Test]
+    public void OldCadenceFailsAfterStreakMakesRequiredInputFaster()
     {
         state.RegisterInput(h980220_Leg.Left);
         h980220_Leg next = h980220_Leg.Right;
         for (int i = 0; i < 4; i++)
         {
-            state.Tick(0.35f);
-            state.RegisterInput(next);
+            state.Tick(state.CurrentStepDuration * 0.7f);
+            Assert.That(state.RegisterInput(next), Is.EqualTo(h980220_RhythmInputResult.Success));
             next = next == h980220_Leg.Left ? h980220_Leg.Right : h980220_Leg.Left;
         }
-        Assert.That(state.CurrentSpeed, Is.EqualTo(6f).Within(0.001f));
+
+        Assert.That(state.CurrentStepDuration, Is.LessThan(0.35f));
+        state.Tick(0.35f);
+
+        Assert.That(state.SuccessStreak, Is.Zero);
+        Assert.That(state.IsMoving, Is.False);
     }
 
     [Test]

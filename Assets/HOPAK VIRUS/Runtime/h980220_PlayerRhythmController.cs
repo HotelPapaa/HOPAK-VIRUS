@@ -3,17 +3,19 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public sealed class h980220_PlayerRhythmController : MonoBehaviour
 {
-    private const float MaxTorsoSquashFraction = 0.35f;
-
     [Header("Movement")]
     [SerializeField] private float baseMoveSpeed = 2f;
+    [InspectorName("Reference Move Speed")]
+    [Tooltip("Speed reached at the reference success count. Acceleration continues past it.")]
     [SerializeField] private float maxMoveSpeed = 6f;
+    [InspectorName("Successes To Reference Speed")]
     [SerializeField] private int successesToMaxSpeed = 4;
     [SerializeField] private float turnSpeed = 120f;
 
     [Header("Rhythm")]
     [SerializeField] private float stepDuration = 0.5f;
     [SerializeField] private float successWindow = 0.2f;
+    [SerializeField] private float cadenceAccelerationPerSuccess = 0.15f;
 
     [Header("Leg Segments")]
     [SerializeField] private Transform leftThigh;
@@ -23,8 +25,6 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
 
     [Header("Torso Motion")]
     [SerializeField] private Transform torso;
-    [Range(0f, 1f)]
-    [Tooltip("Torso squash intensity. 1 uses the maximum safe squash.")]
     [SerializeField] private float torsoBobHeight = 0.18f;
     [SerializeField] private float torsoLeanDegrees = 12f;
 
@@ -34,7 +34,6 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     private Transform capturedTorso;
     private Vector3 torsoBasePosition;
     private Quaternion torsoBaseRotation;
-    private Vector3 torsoBaseScale;
 
     public float CurrentSpeed => rhythm == null ? baseMoveSpeed : rhythm.CurrentSpeed;
     public int SuccessStreak => rhythm == null ? 0 : rhythm.SuccessStreak;
@@ -43,7 +42,8 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
     {
         characterController = GetComponent<CharacterController>();
         rhythm = new h980220_RhythmState(
-            stepDuration, successWindow, baseMoveSpeed, maxMoveSpeed, successesToMaxSpeed);
+            stepDuration, successWindow, baseMoveSpeed, maxMoveSpeed,
+            successesToMaxSpeed, cadenceAccelerationPerSuccess);
         EnsureTorsoBaseline();
     }
 
@@ -111,13 +111,7 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         EnsureTorsoBaseline();
         if (torso != null)
         {
-            float squash = Mathf.Clamp01(pose.TorsoDip * torsoBobHeight);
-            Vector3 torsoScale = torsoBaseScale;
-            torsoScale.y = torsoBaseScale.y * (1f - squash * MaxTorsoSquashFraction);
-            float lostHeight = torsoBaseScale.y - torsoScale.y;
-
-            torso.localScale = torsoScale;
-            torso.localPosition = torsoBasePosition + Vector3.down * (lostHeight * 0.5f);
+            torso.localPosition = torsoBasePosition + Vector3.down * (pose.TorsoDip * torsoBobHeight);
             torso.localRotation = torsoBaseRotation *
                 Quaternion.Euler(0f, 0f, pose.TorsoLean * torsoLeanDegrees);
         }
@@ -143,7 +137,6 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         capturedTorso = torso;
         torsoBasePosition = torso.localPosition;
         torsoBaseRotation = torso.localRotation;
-        torsoBaseScale = torso.localScale;
     }
 
     private void OnValidate()
@@ -153,7 +146,8 @@ public sealed class h980220_PlayerRhythmController : MonoBehaviour
         successWindow = Mathf.Clamp(successWindow, 0.01f, stepDuration);
         maxMoveSpeed = Mathf.Max(baseMoveSpeed, maxMoveSpeed);
         successesToMaxSpeed = Mathf.Max(1, successesToMaxSpeed);
-        torsoBobHeight = Mathf.Clamp01(torsoBobHeight);
+        cadenceAccelerationPerSuccess = Mathf.Max(0.01f, cadenceAccelerationPerSuccess);
+        torsoBobHeight = Mathf.Max(0f, torsoBobHeight);
         torsoLeanDegrees = Mathf.Max(0f, torsoLeanDegrees);
     }
 }

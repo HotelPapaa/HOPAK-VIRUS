@@ -22,16 +22,13 @@ public static class h980220_GameSceneBuilder
         EnsureFolders();
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        Material purple = MaterialAt("Purple", new Color(0.55f, 0.10f, 0.75f));
         Material cyan = MaterialAt("Cyan", new Color(0.20f, 0.85f, 0.90f));
         Material white = MaterialAt("White", new Color(0.95f, 0.95f, 1f));
-        Material grayFloor = MaterialAt("GrayFloor", new Color(0.18f, 0.20f, 0.23f));
+        Material grayFloor = MaterialAt("GrayFloor", new Color(0.082f, 0.094f, 0.125f));
         Material grayWall = MaterialAt("GrayWall", new Color(0.30f, 0.32f, 0.36f));
         Material skin = MaterialAt("Skin", new Color(0.76f, 0.65f, 0.55f));
 
-        ProjectilePrefab("VirusProjectile", purple);
         ProjectilePrefab("CureProjectile", white);
-        h980220_Projectile virusProjectile = LoadProjectilePrefab("VirusProjectile");
         h980220_Projectile cureProjectile = LoadProjectilePrefab("CureProjectile");
 
         h980220_PlayerRhythmController rhythm;
@@ -39,7 +36,7 @@ public static class h980220_GameSceneBuilder
         h980220_PlayerInfection infection;
         Renderer[] playerRenderers;
         GameObject player = CreatePlayer(
-            skin, virusProjectile, out rhythm, out combat, out infection, out playerRenderers);
+            skin, out rhythm, out combat, out infection, out playerRenderers);
 
         h980220_RoomController[] rooms = CreateRooms(
             player.transform, cureProjectile, cyan, grayFloor, grayWall);
@@ -151,7 +148,6 @@ public static class h980220_GameSceneBuilder
 
     private static GameObject CreatePlayer(
         Material skin,
-        h980220_Projectile virusProjectile,
         out h980220_PlayerRhythmController rhythm,
         out h980220_PlayerCombat combat,
         out h980220_PlayerInfection infection,
@@ -184,12 +180,6 @@ public static class h980220_GameSceneBuilder
         SetReference(rhythm, "rightThigh", rightThigh.transform);
         SetReference(rhythm, "rightShin", rightShin.transform);
         SetReference(rhythm, "torso", torso.transform);
-
-        var firePoint = new GameObject("FirePoint");
-        firePoint.transform.SetParent(player.transform, false);
-        firePoint.transform.localPosition = new Vector3(0f, 1.4f, 0.8f);
-        SetReference(combat, "projectilePrefab", virusProjectile);
-        SetReference(combat, "firePoint", firePoint.transform);
 
         renderers = new[]
         {
@@ -239,11 +229,11 @@ public static class h980220_GameSceneBuilder
             new Vector3(4f, 3f, 0.5f), wallMaterial).transform;
         h980220_EnemyController[] room1Enemies =
         {
-            CreateEnemy("Basic 1A", room1.transform, new Vector3(-5f, 0f, 1f),
+            CreateEnemy("Pedestrian 1A", room1.transform, new Vector3(-5f, 0f, 1f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Basic 1B", room1.transform, new Vector3(0f, 0f, 5f),
+            CreateEnemy("Pedestrian 1B", room1.transform, new Vector3(0f, 0f, 5f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Basic 1C", room1.transform, new Vector3(5f, 0f, 1f),
+            CreateEnemy("Pedestrian 1C", room1.transform, new Vector3(5f, 0f, 1f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial)
         };
         h980220_RoomController controller1 = room1.AddComponent<h980220_RoomController>();
@@ -268,13 +258,13 @@ public static class h980220_GameSceneBuilder
             new Vector3(4f, 3f, 0.5f), wallMaterial).transform;
         h980220_EnemyController[] room2Enemies =
         {
-            CreateEnemy("Basic 2A", room2.transform, new Vector3(-4f, 0f, 18f),
+            CreateEnemy("Pedestrian 2A", room2.transform, new Vector3(-4f, 0f, 18f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Basic 2B", room2.transform, new Vector3(4f, 0f, 27f),
+            CreateEnemy("Pedestrian 2B", room2.transform, new Vector3(4f, 0f, 27f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Ranged 2A", room2.transform, new Vector3(4f, 0f, 13f),
+            CreateEnemy("Medic 2A", room2.transform, new Vector3(4f, 0f, 13f),
                 h980220_EnemyType.Ranged, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Ranged 2B", room2.transform, new Vector3(-4f, 0f, 31f),
+            CreateEnemy("Medic 2B", room2.transform, new Vector3(-4f, 0f, 31f),
                 h980220_EnemyType.Ranged, 1, player, cureProjectile, enemyMaterial)
         };
         h980220_RoomController controller2 = room2.AddComponent<h980220_RoomController>();
@@ -314,12 +304,12 @@ public static class h980220_GameSceneBuilder
 
         h980220_EnemyController[] room3Enemies =
         {
-            CreateEnemy("Basic 3A", room3.transform, new Vector3(-7f, 0f, 48f),
+            CreateEnemy("Pedestrian 3A", room3.transform, new Vector3(-7f, 0f, 48f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Basic 3B", room3.transform, new Vector3(7f, 0f, 48f),
+            CreateEnemy("Pedestrian 3B", room3.transform, new Vector3(7f, 0f, 48f),
                 h980220_EnemyType.Basic, 1, player, cureProjectile, enemyMaterial),
-            CreateEnemy("Elite 3", room3.transform, new Vector3(0f, 0f, 48f),
-                h980220_EnemyType.Elite, 3, player, cureProjectile, enemyMaterial)
+            CreateEnemy("Police 3", room3.transform, new Vector3(0f, 0f, 48f),
+                h980220_EnemyType.Elite, 1, player, cureProjectile, enemyMaterial)
         };
         h980220_RoomController controller3 = room3.AddComponent<h980220_RoomController>();
         controller3.Initialize(2, room3Enemies, null);
@@ -421,7 +411,7 @@ public static class h980220_GameSceneBuilder
 
         titlePanel = Panel("TitlePanel", canvasObject.transform);
         Text title = UiText("TitleText", titlePanel.transform, font, 44, TextAnchor.MiddleCenter);
-        title.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\nLEFT / RIGHT: TURN\nSPACE: SPREAD VIRUS\nENTER: START";
+        title.text = "HOPAK VIRUS\n\nA / D: HOPAK STEPS\nLEFT / RIGHT: TURN\nTOUCH: INFECT\nSPACE: DASH / DEFEAT POLICE\nENTER: START";
         Stretch(title.rectTransform, new Vector2(300f, 180f), new Vector2(-300f, -180f));
 
         hudPanel = Panel("HudPanel", canvasObject.transform);

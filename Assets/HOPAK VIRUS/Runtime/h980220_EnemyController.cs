@@ -3,8 +3,11 @@ using UnityEngine;
 
 public enum h980220_EnemyType
 {
+    [InspectorName("Pedestrian")]
     Basic,
+    [InspectorName("Medic")]
     Ranged,
+    [InspectorName("Police")]
     Elite
 }
 
@@ -17,9 +20,13 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     [SerializeField] private h980220_EnemyType enemyType;
     [SerializeField] private int requiredHits = 1;
     [SerializeField] private Transform player;
+    [InspectorName("Movement / Flee Speed")]
     [SerializeField] private float movementSpeed = 2f;
     [SerializeField] private float contactRange = 1.25f;
+    [InspectorName("Projectile Respawn Time")]
     [SerializeField] private float fireInterval = 1f;
+    [SerializeField] private float projectileSpeed = 7f;
+    [SerializeField] private float projectileSizeMultiplier = 1f;
     [SerializeField] private h980220_Projectile cureProjectilePrefab;
     [SerializeField] private Transform firePoint;
 
@@ -36,10 +43,18 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     private float nextFireTime = float.NegativeInfinity;
     private Vector3 danceOrigin;
     private Quaternion danceRotation;
+    private Transform cylinderTorso;
+    private Transform cylinderLeftThigh;
+    private Transform cylinderLeftShin;
+    private Transform cylinderRightThigh;
+    private Transform cylinderRightShin;
+    private Vector3 cylinderTorsoBasePosition;
+    private Quaternion cylinderTorsoBaseRotation;
 
     public event Action<h980220_EnemyController> Infected;
 
     public h980220_EnemyType EnemyType => enemyType;
+    public bool IsPolice => enemyType == h980220_EnemyType.Elite;
     public int RequiredHits => requiredHits;
     public bool IsInfected { get; private set; }
     public bool IsCombatEnabled => combatEnabled && !IsInfected;
@@ -47,18 +62,23 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        EnsureCylinderModel();
         danceOrigin = transform.position;
         danceRotation = transform.rotation;
     }
 
     public void Configure(h980220_EnemyType type, int hitsRequired)
     {
+        EnsureCylinderModel();
         enemyType = type;
         requiredHits = Mathf.Max(1, hitsRequired);
         receivedHits = 0;
         IsInfected = false;
         combatEnabled = true;
         nextFireTime = float.NegativeInfinity;
+        if (characterController == null)
+            characterController = GetComponent<CharacterController>();
+        SetCollisionsEnabled(true);
         danceOrigin = transform.position;
         danceRotation = transform.rotation;
         RefreshColor();
@@ -76,9 +96,28 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
 
         IsInfected = true;
         combatEnabled = false;
+        SetCollisionsEnabled(false);
         danceOrigin = transform.position;
         danceRotation = transform.rotation;
         Infected?.Invoke(this);
+    }
+
+    public bool ReceivePlayerContact(bool playerIsDashing)
+    {
+        if (IsInfected)
+            return true;
+
+        if (IsPolice)
+        {
+            if (!playerIsDashing)
+                return false;
+
+            DefeatPolice();
+            return true;
+        }
+
+        ReceiveVirusHit();
+        return true;
     }
 
     public void SetCombatEnabled(bool enabled)
@@ -105,8 +144,9 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         switch (enemyType)
         {
             case h980220_EnemyType.Basic:
-                MoveTowardPlayer(deltaTime);
-                TryContactCure(now);
+                MoveAwayFromPlayer(deltaTime);
+                if (IsInfected)
+                    return;
                 break;
             case h980220_EnemyType.Ranged:
                 FacePlayer();
@@ -114,10 +154,53 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
                 break;
             case h980220_EnemyType.Elite:
                 MoveTowardPlayer(deltaTime);
+                if (IsInfected)
+                    return;
                 FacePlayer();
-                TryContactCure(now);
-                TryFireCure(now);
                 break;
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit.collider == null)
+            return;
+
+        h980220_PlayerCombat playerCombat =
+            hit.collider.GetComponentInParent<h980220_PlayerCombat>();
+        playerCombat?.TryContactEnemy(this);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other == null)
+            return;
+
+        h980220_PlayerCombat playerCombat =
+            other.GetComponentInParent<h980220_PlayerCombat>();
+        playerCombat?.TryContactEnemy(this);
+    }
+
+    private void DefeatPolice()
+    {
+        if (IsInfected)
+            return;
+
+        receivedHits = requiredHits;
+        IsInfected = true;
+        combatEnabled = false;
+        SetCollisionsEnabled(false);
+        RefreshColor();
+        Infected?.Invoke(this);
+        gameObject.SetActive(false);
+    }
+
+    private void SetCollisionsEnabled(bool enabled)
+    {
+        foreach (Collider bodyCollider in GetComponentsInChildren<Collider>(true))
+        {
+            if (bodyCollider != null)
+                bodyCollider.enabled = enabled && bodyCollider is CharacterController;
         }
     }
 
@@ -133,6 +216,22 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         if (characterController == null)
             characterController = GetComponent<CharacterController>();
 
+        characterController.Move(direction * movementSpeed * deltaTime);
+    }
+
+    private void MoveAwayFromPlayer(float deltaTime)
+    {
+        if (deltaTime <= 0f)
+            return;
+
+        Vector3 direction = -HorizontalDirectionToPlayer();
+        if (direction == Vector3.zero)
+            return;
+
+        if (characterController == null)
+            characterController = GetComponent<CharacterController>();
+
+        transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
         characterController.Move(direction * movementSpeed * deltaTime);
     }
 
@@ -210,9 +309,12 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         Transform origin = firePoint == null ? transform : firePoint;
         h980220_Projectile projectile = Instantiate(cureProjectilePrefab, origin.position,
             Quaternion.LookRotation(direction, Vector3.up));
+        projectile.transform.localScale = Vector3.Scale(
+            projectile.transform.localScale,
+            Vector3.one * projectileSizeMultiplier);
         IgnoreShooterCollisions(projectile);
         SetProjectileColor(projectile, Color.white);
-        projectile.Initialize(h980220_ProjectileKind.Cure, direction, 7f, 12f);
+        projectile.Initialize(h980220_ProjectileKind.Cure, direction, projectileSpeed, 12f);
         nextFireTime = now + Mathf.Max(0f, fireInterval);
     }
 
@@ -238,9 +340,119 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
 
     private void Dance(float now)
     {
-        float wave = Mathf.Sin(now);
-        transform.position = danceOrigin + Vector3.up * (wave * danceHeight);
-        transform.rotation = danceRotation * Quaternion.Euler(0f, 0f, wave * danceLeanDegrees);
+        const float danceStepDuration = 0.5f;
+        float step = now / danceStepDuration;
+        int stepIndex = Mathf.FloorToInt(step);
+        h980220_Leg activeLeg = stepIndex % 2 == 0
+            ? h980220_Leg.Left
+            : h980220_Leg.Right;
+        h980220_LegPose pose = h980220_HopakPose.Evaluate(activeLeg, step - stepIndex);
+
+        if (cylinderLeftThigh != null)
+            cylinderLeftThigh.localRotation = Quaternion.Euler(pose.LeftThighX, 0f, 0f);
+        if (cylinderLeftShin != null)
+            cylinderLeftShin.localRotation = Quaternion.Euler(pose.LeftShinX, 0f, 0f);
+        if (cylinderRightThigh != null)
+            cylinderRightThigh.localRotation = Quaternion.Euler(pose.RightThighX, 0f, 0f);
+        if (cylinderRightShin != null)
+            cylinderRightShin.localRotation = Quaternion.Euler(pose.RightShinX, 0f, 0f);
+        if (cylinderTorso != null)
+        {
+            cylinderTorso.localPosition = cylinderTorsoBasePosition +
+                                           Vector3.down * (pose.TorsoDip * danceHeight);
+            cylinderTorso.localRotation = cylinderTorsoBaseRotation *
+                Quaternion.Euler(0f, 0f, pose.TorsoLean * danceLeanDegrees);
+        }
+    }
+
+    private void EnsureCylinderModel()
+    {
+        if (cylinderTorso != null)
+            return;
+
+        Transform modelRoot = transform.Find("h980220_CylinderModel");
+        if (modelRoot != null)
+        {
+            CaptureCylinderModel(modelRoot);
+            return;
+        }
+
+        Material sourceMaterial = null;
+        foreach (Renderer oldRenderer in bodyRenderers)
+        {
+            if (oldRenderer == null)
+                continue;
+
+            if (sourceMaterial == null)
+                sourceMaterial = oldRenderer.sharedMaterial;
+            oldRenderer.gameObject.SetActive(false);
+        }
+
+        var modelObject = new GameObject("h980220_CylinderModel");
+        modelObject.transform.SetParent(transform, false);
+        modelRoot = modelObject.transform;
+
+        cylinderTorso = CreateCylinder("Torso", modelRoot,
+            new Vector3(0f, 2.1f, 0f), new Vector3(1.2f, 0.7f, 0.8f), sourceMaterial);
+        cylinderLeftThigh = CreateCylinder("LeftThigh", modelRoot,
+            new Vector3(-0.4f, 1.2f, 0f), new Vector3(0.35f, 0.45f, 0.35f), sourceMaterial);
+        cylinderLeftShin = CreateCylinder("LeftShin", cylinderLeftThigh,
+            new Vector3(0f, -0.85f, 0f), new Vector3(0.9f, 0.9f, 0.9f), sourceMaterial);
+        cylinderRightThigh = CreateCylinder("RightThigh", modelRoot,
+            new Vector3(0.4f, 1.2f, 0f), new Vector3(0.35f, 0.45f, 0.35f), sourceMaterial);
+        cylinderRightShin = CreateCylinder("RightShin", cylinderRightThigh,
+            new Vector3(0f, -0.85f, 0f), new Vector3(0.9f, 0.9f, 0.9f), sourceMaterial);
+
+        bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
+        cylinderTorsoBasePosition = cylinderTorso.localPosition;
+        cylinderTorsoBaseRotation = cylinderTorso.localRotation;
+
+        if (characterController != null)
+        {
+            characterController.center = new Vector3(0f, 1.75f, 0f);
+            characterController.height = 3.5f;
+            characterController.radius = 0.6f;
+        }
+    }
+
+    private void CaptureCylinderModel(Transform modelRoot)
+    {
+        cylinderTorso = modelRoot.Find("Torso");
+        cylinderLeftThigh = modelRoot.Find("LeftThigh");
+        cylinderRightThigh = modelRoot.Find("RightThigh");
+        cylinderLeftShin = cylinderLeftThigh == null ? null : cylinderLeftThigh.Find("LeftShin");
+        cylinderRightShin = cylinderRightThigh == null ? null : cylinderRightThigh.Find("RightShin");
+        bodyRenderers = modelRoot.GetComponentsInChildren<Renderer>(true);
+        if (cylinderTorso != null)
+        {
+            cylinderTorsoBasePosition = cylinderTorso.localPosition;
+            cylinderTorsoBaseRotation = cylinderTorso.localRotation;
+        }
+    }
+
+    private static Transform CreateCylinder(
+        string name, Transform parent, Vector3 localPosition,
+        Vector3 localScale, Material material)
+    {
+        GameObject cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        cylinder.name = name;
+        cylinder.transform.SetParent(parent, false);
+        cylinder.transform.localPosition = localPosition;
+        cylinder.transform.localScale = localScale;
+
+        Collider primitiveCollider = cylinder.GetComponent<Collider>();
+        if (primitiveCollider != null)
+        {
+            primitiveCollider.enabled = false;
+            if (Application.isPlaying)
+                Destroy(primitiveCollider);
+            else
+                DestroyImmediate(primitiveCollider);
+        }
+
+        if (material != null)
+            cylinder.GetComponent<Renderer>().sharedMaterial = material;
+        return cylinder.transform;
     }
 
     private void RefreshColor()
@@ -282,6 +494,8 @@ public sealed class h980220_EnemyController : MonoBehaviour, h980220_IVirusHitRe
         movementSpeed = Mathf.Max(0f, movementSpeed);
         contactRange = Mathf.Max(0f, contactRange);
         fireInterval = Mathf.Max(0f, fireInterval);
+        projectileSpeed = Mathf.Max(0f, projectileSpeed);
+        projectileSizeMultiplier = Mathf.Max(0.05f, projectileSizeMultiplier);
         danceHeight = Mathf.Max(0f, danceHeight);
         danceLeanDegrees = Mathf.Max(0f, danceLeanDegrees);
     }
