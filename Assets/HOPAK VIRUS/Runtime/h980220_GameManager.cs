@@ -80,6 +80,9 @@ public sealed class h980220_GameManager : MonoBehaviour
 
     public void StartGame()
     {
+        if (State != h980220_GameState.Title)
+            return;
+
         State = h980220_GameState.Playing;
         SetActive(titlePanel, false);
         SetActive(hudPanel, true);
@@ -90,7 +93,7 @@ public sealed class h980220_GameManager : MonoBehaviour
 
     public void SetCurrentRoom(int index)
     {
-        if (index < 0 || index >= rooms.Length)
+        if (State != h980220_GameState.Playing || index < 0 || index >= rooms.Length)
             return;
 
         currentRoomIndex = index;

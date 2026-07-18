@@ -190,6 +190,102 @@ public sealed class h980220_GameFlowTests
         Assert.That(requestCount, Is.EqualTo(1));
         Assert.That(requestedBuildIndex, Is.EqualTo(SceneManager.GetActiveScene().buildIndex));
     }
+
+    [Test]
+    public void StartGameAfterWonPreservesFinishedStateAndLocks()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        fixture.Manager.StartGame();
+        fixture.Enemies[0].ReceiveVirusHit();
+        fixture.Enemies[1].ReceiveVirusHit();
+        fixture.Enemies[2].ReceiveVirusHit();
+        string result = fixture.ResultText.text;
+        string room = fixture.RoomText.text;
+
+        fixture.Manager.StartGame();
+
+        AssertFinishedStateAndLocks(h980220_GameState.Won, result, room);
+    }
+
+    [Test]
+    public void StartGameAfterCuredPreservesFinishedStateAndLocks()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        fixture.Manager.StartGame();
+        fixture.Manager.Lose();
+        string result = fixture.ResultText.text;
+        string room = fixture.RoomText.text;
+
+        fixture.Manager.StartGame();
+
+        AssertFinishedStateAndLocks(h980220_GameState.Cured, result, room);
+    }
+
+    [Test]
+    public void SetCurrentRoomDuringTitleCannotChangeRoomUiOrActivateCombat()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        string room = fixture.RoomText.text;
+
+        fixture.Manager.SetCurrentRoom(1);
+
+        Assert.That(fixture.Manager.State, Is.EqualTo(h980220_GameState.Title));
+        Assert.That(fixture.RoomText.text, Is.EqualTo(room));
+        Assert.That(fixture.Enemies, Has.All.Matches<h980220_EnemyController>(enemy => !enemy.IsCombatEnabled));
+    }
+
+    [Test]
+    public void SetCurrentRoomAfterWonCannotChangeRoomUiOrUnlockInput()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        fixture.Manager.StartGame();
+        fixture.Enemies[0].ReceiveVirusHit();
+        fixture.Enemies[1].ReceiveVirusHit();
+        fixture.Enemies[2].ReceiveVirusHit();
+        string result = fixture.ResultText.text;
+        string room = fixture.RoomText.text;
+
+        fixture.Manager.SetCurrentRoom(0);
+
+        AssertFinishedStateAndLocks(h980220_GameState.Won, result, room);
+    }
+
+    [Test]
+    public void SetCurrentRoomAfterCuredCannotChangeRoomUiOrActivateCombat()
+    {
+        fixture = new h980220_GameFlowFixture();
+        fixture.Activate();
+        fixture.Manager.StartGame();
+        fixture.Manager.Lose();
+        string result = fixture.ResultText.text;
+        string room = fixture.RoomText.text;
+
+        fixture.Manager.SetCurrentRoom(1);
+
+        AssertFinishedStateAndLocks(h980220_GameState.Cured, result, room);
+    }
+
+    private void AssertFinishedStateAndLocks(
+        h980220_GameState expectedState, string expectedResult, string expectedRoom)
+    {
+        Assert.That(fixture.Manager.State, Is.EqualTo(expectedState));
+        Assert.That(fixture.ResultText.text, Is.EqualTo(expectedResult));
+        Assert.That(fixture.RoomText.text, Is.EqualTo(expectedRoom));
+        Assert.That(fixture.TitlePanel.activeSelf, Is.False);
+        Assert.That(fixture.HudPanel.activeSelf, Is.False);
+        Assert.That(fixture.ResultPanel.activeSelf, Is.True);
+        Assert.That(fixture.Enemies, Has.All.Matches<h980220_EnemyController>(enemy => !enemy.IsCombatEnabled));
+
+        Quaternion lockedRotation = fixture.Player.transform.rotation;
+        fixture.Rhythm.ProcessFrame(0.5f, false, false, 1f);
+        Assert.That(fixture.Player.transform.rotation,
+            Is.EqualTo(lockedRotation).Using(QuaternionEqualityComparer.Instance));
+        Assert.That(fixture.Combat.ProcessInputAtTime(true, 100f), Is.False);
+    }
 }
 
 internal sealed class h980220_GameFlowFixture : IDisposable
