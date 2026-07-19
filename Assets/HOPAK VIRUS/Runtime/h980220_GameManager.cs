@@ -255,7 +255,12 @@ public sealed class h980220_GameManager : MonoBehaviour
 
         State = h980220_GameState.Won;
         if (followCamera != null)
-            followCamera.SetVictoryView();
+        {
+            if (endlessWorld != null)
+                followCamera.SetVictoryView(endlessWorld.ArenaCenter, endlessWorld.ArenaSize);
+            else
+                followCamera.SetVictoryView();
+        }
         Finish("축하합니다! 보균에 성공했습니다!");
     }
 
@@ -309,7 +314,15 @@ public sealed class h980220_GameManager : MonoBehaviour
         SetActive(stageNoticePanel, false);
         SetActive(resultPanel, true);
         if (resultText != null)
+        {
             resultText.text = message;
+            if (State == h980220_GameState.Won)
+            {
+                resultText.color = new Color(1f, 0.86f, 0.12f, 1f);
+                resultText.fontStyle = FontStyle.Bold;
+                AddDarkOutline(resultText.gameObject);
+            }
+        }
     }
 
     private void SetPlayerInput(bool enabled)

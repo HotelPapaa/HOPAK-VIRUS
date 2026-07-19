@@ -121,6 +121,7 @@ public sealed class h980220_EndlessWorldController : MonoBehaviour
     private float arenaHalfExtent;
     private int currentStage = 1;
     private int nextWallSpawnIndex;
+    private bool gameCompleted;
 
     public event System.Action Survived;
     public event System.Action StageTwoStarted;
@@ -136,6 +137,8 @@ public sealed class h980220_EndlessWorldController : MonoBehaviour
         }
     }
     public int CurrentStage => currentStage;
+    public Vector3 ArenaCenter => arenaCenter;
+    public float ArenaSize => arenaHalfExtent * 2f;
     public float SurvivalProgress => spawnSettings.stageDuration <= 0f
         ? 0f : Mathf.Clamp01(elapsed / (spawnSettings.stageDuration * 2f));
     private float SurvivalPressure => SurvivalProgress * SurvivalProgress;
@@ -188,11 +191,15 @@ public sealed class h980220_EndlessWorldController : MonoBehaviour
         LayoutFixedArena();
         BuildBoundaryWalls();
         BuildStageTwoObstacles();
+        gameCompleted = false;
         simulationEnabled = false;
     }
 
     public void SetSimulationEnabled(bool enabled)
     {
+        if (enabled && gameCompleted)
+            return;
+
         simulationEnabled = enabled;
         if (enabled)
         {
@@ -229,6 +236,7 @@ public sealed class h980220_EndlessWorldController : MonoBehaviour
         if (!survivalCompleted && elapsed >= spawnSettings.stageDuration * 2f)
         {
             survivalCompleted = true;
+            gameCompleted = true;
             simulationEnabled = false;
             Survived?.Invoke();
             return;
@@ -360,6 +368,8 @@ public sealed class h980220_EndlessWorldController : MonoBehaviour
 
     private void BeginStageTwo()
     {
+        if (gameCompleted || currentStage != 1)
+            return;
         currentStage = 2;
         SetStageTwoObstaclesActive(true);
         StageTwoStarted?.Invoke();

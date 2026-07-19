@@ -28,6 +28,8 @@ public sealed class h980220_FollowCamera : MonoBehaviour
     private h980220_PlayerCombat playerCombat;
     private float currentSpeedFraming;
     private bool victoryView;
+    private Vector3 victoryFocus;
+    private float victoryHeight = 100f;
 
     private void LateUpdate()
     {
@@ -39,7 +41,20 @@ public sealed class h980220_FollowCamera : MonoBehaviour
         if (target == null)
             return;
 
-        float desiredSpeedFraming = victoryView ? 0f : CalculateSpeedFraming();
+        if (victoryView)
+        {
+            float victoryBlend = 1f - Mathf.Exp(-2.2f * Mathf.Max(0f, deltaTime));
+            Vector3 desiredVictoryPosition = victoryFocus + Vector3.up * victoryHeight;
+            transform.position = Vector3.Lerp(
+                transform.position, desiredVictoryPosition, victoryBlend);
+            Quaternion desiredVictoryRotation = Quaternion.LookRotation(
+                Vector3.down, Vector3.forward);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation, desiredVictoryRotation, victoryBlend);
+            return;
+        }
+
+        float desiredSpeedFraming = CalculateSpeedFraming();
         float framingBlend = 1f - Mathf.Exp(-speedFramingSmooth * Mathf.Max(0f, deltaTime));
         currentSpeedFraming = Mathf.Lerp(
             currentSpeedFraming, desiredSpeedFraming, framingBlend);
@@ -83,7 +98,15 @@ public sealed class h980220_FollowCamera : MonoBehaviour
     public void SetVictoryView()
     {
         victoryView = true;
-        offset = new Vector3(0f, 10f, -14f);
+        victoryFocus = target == null ? transform.position : target.position;
+        victoryHeight = 100f;
+    }
+
+    public void SetVictoryView(Vector3 arenaCenter, float arenaSize)
+    {
+        victoryView = true;
+        victoryFocus = arenaCenter;
+        victoryHeight = Mathf.Max(50f, arenaSize * 0.95f);
     }
 
     private float CalculateSpeedFraming()
